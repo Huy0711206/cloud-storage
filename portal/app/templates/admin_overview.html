@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Quản trị{% endblock %}
+{% block content %}
+<h2>Quản trị</h2>
+{% set active = 'overview' %}{% include "admin_nav.html" %}
+
+<section class="grid stats">
+  <div class="card stat"><div class="n">{{ stats.users }}</div><div>Người dùng</div></div>
+  <div class="card stat"><div class="n">{{ stats.verified }}</div><div>Đã xác thực email</div></div>
+  <div class="card stat"><div class="n">{{ stats.paid_users }}</div><div>Đang dùng gói trả phí</div></div>
+  <div class="card stat"><div class="n">{{ stats.orders_paid }}</div><div>Đơn đã thanh toán</div></div>
+  <div class="card stat"><div class="n">{{ stats.revenue|vnd }}</div><div>Doanh thu</div></div>
+  <div class="card stat"><div class="n">{{ stats.unsynced }}</div><div>Quota chờ đồng bộ</div></div>
+</section>
+
+<form method="post" action="/admin/maintenance" class="inline-form">
+  <button class="btn ghost small" type="submit">Chạy bảo trì ngay (hạ gói hết hạn, đồng bộ quota)</button>
+</form>
+
+<h3>Đơn hàng gần đây</h3>
+<table>
+  <thead><tr><th>Mã</th><th>Người dùng</th><th>Gói</th><th>Số tiền</th><th>Trạng thái</th><th>Ngày tạo</th></tr></thead>
+  <tbody>
+  {% for o in recent %}
+    <tr><td>{{ o.txn_ref }}</td><td>{{ o.user.email }}</td><td>{{ o.plan.name }} · {{ o.months }} tháng</td><td>{{ o.amount_vnd|vnd }}</td>
+        <td><span class="tag {{ o.status }}">{{ o.status }}</span></td><td>{{ o.created_at|dt }}</td></tr>
+  {% else %}<tr><td colspan="6" class="muted">Chưa có đơn hàng.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

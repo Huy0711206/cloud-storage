@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Người dùng{% endblock %}
+{% block content %}
+<h2>Quản trị</h2>
+{% set active = 'users' %}{% include "admin_nav.html" %}
+
+<form method="get" action="/admin/users" class="inline-form">
+  <input name="q" value="{{ q }}" placeholder="Tìm theo email hoặc tên">
+  <button class="btn small" type="submit">Tìm</button>
+</form>
+
+<table>
+  <thead><tr><th>Email</th><th>Họ tên</th><th>Gói</th><th>Hết hạn</th><th>Trạng thái</th><th>Thao tác</th></tr></thead>
+  <tbody>
+  {% for u in users %}
+    <tr>
+      <td>{{ u.email }}</td><td>{{ u.full_name }}</td>
+      <td>{{ u.plan.name if u.plan else '—' }}{% if not u.quota_synced %} <span class="tag failed">chưa đồng bộ</span>{% endif %}</td>
+      <td>{{ u.plan_expires_at|dt }}</td>
+      <td>
+        {% if not u.is_verified %}<span class="tag pending">Chưa xác thực</span>
+        {% elif u.is_active %}<span class="tag paid">Hoạt động</span>
+        {% else %}<span class="tag failed">Bị khóa</span>{% endif %}
+      </td>
+      <td class="actions-cell">
+        <form method="post" action="/admin/users/{{ u.id }}/toggle"><button class="btn tiny ghost" type="submit">{{ 'Khóa' if u.is_active else 'Mở khóa' }}</button></form>
+        <form method="post" action="/admin/users/{{ u.id }}/grant" class="grant">
+          <select name="plan_code">{% for p in plans %}<option value="{{ p.code }}" {{ 'selected' if u.plan_id == p.id }}>{{ p.name }}</option>{% endfor %}</select>
+          <select name="months">{% for m in month_choices %}<option value="{{ m }}">{{ m }} th</option>{% endfor %}</select>
+          <button class="btn tiny" type="submit">Cấp gói</button>
+        </form>
+        {% if not u.quota_synced %}<form method="post" action="/admin/users/{{ u.id }}/sync"><button class="btn tiny ghost" type="submit">Đồng bộ quota</button></form>{% endif %}
+      </td>
+    </tr>
+  {% else %}<tr><td colspan="6" class="muted">Không có người dùng.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

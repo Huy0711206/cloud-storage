@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+<div class="narrow card center">
+  <div class="big {{ kind }}">{{ '✓' if kind == 'ok' else '!' }}</div>
+  <h2>{{ title }}</h2>
+  <p>{{ text }}</p>
+  {% if link %}<a class="btn" href="{{ link[0] }}">{{ link[1] }}</a>{% else %}<a class="btn ghost" href="/">Về trang chủ</a>{% endif %}
+</div>
+{% endblock %}

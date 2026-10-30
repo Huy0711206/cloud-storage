@@ -1,0 +1,146 @@
+# Hệ thống Cloud Data Storage: Nextcloud (lưu trữ) + Portal (đăng ký / billing / thanh toán)
+# Chạy:  docker compose up -d --build
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: nextcloud
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      - ./db-init:/docker-entrypoint-initdb.d:ro   # tạo thêm database "portal"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d nextcloud"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  nextcloud:
+    image: nextcloud:apache
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "8080:80"
+    environment:
+      POSTGRES_HOST: db
+      POSTGRES_DB: nextcloud
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      NEXTCLOUD_ADMIN_USER: ${NEXTCLOUD_ADMIN_USER}
+      NEXTCLOUD_ADMIN_PASSWORD: ${NEXTCLOUD_ADMIN_PASSWORD}
+      # "nextcloud" là tên mà portal dùng để gọi API trong mạng Docker
+      NEXTCLOUD_TRUSTED_DOMAINS: "localhost nextcloud ${EXTRA_TRUSTED_DOMAINS:-}"
+      REDIS_HOST: redis
+      PHP_UPLOAD_LIMIT: 2G
+      PHP_MEMORY_LIMIT: 512M
+    healthcheck:
+      test: ["CMD", "php", "-r", "exit((json_decode(@file_get_contents('http://127.0.0.1/status.php'), true)['installed'] ?? false) ? 0 : 1);"]
+      interval: 5s
+      timeout: 5s
+      start_period: 30s
+      retries: 30
+    volumes:
+      - nextcloud_data:/var/www/html
+
+  mailpit:
+    # Hộp thư giả lập để xem email xác thực khi chạy thử. Giao diện: http://localhost:8025
+    image: axllent/mailpit:latest
+    restart: unless-stopped
+    ports:
+      - "8025:8025"
+
+  portal:
+    build: ./portal
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      nextcloud:
+        condition: service_healthy
+      mailpit:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:8000:8000"  # cổng chính trên laptop
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=3).read()"]
+      interval: 5s
+      timeout: 5s
+      start_period: 15s
+      retries: 12
+    environment:
+      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/portal
+      SECRET_KEY: ${SECRET_KEY}
+      BASE_URL: ${BASE_URL:-http://localhost:8000}
+      NEXTCLOUD_URL: http://nextcloud
+      NEXTCLOUD_PUBLIC_URL: ${NEXTCLOUD_PUBLIC_URL}
+      NEXTCLOUD_ADMIN_USER: ${NEXTCLOUD_ADMIN_USER}
+      NEXTCLOUD_ADMIN_PASSWORD: ${NEXTCLOUD_ADMIN_PASSWORD}
+      ADMIN_EMAIL: ${ADMIN_EMAIL}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_STARTTLS: ${SMTP_STARTTLS:-false}
+      MAIL_FROM: ${MAIL_FROM}
+      VNPAY_TMN_CODE: ${VNPAY_TMN_CODE:-}
+      VNPAY_HASH_SECRET: ${VNPAY_HASH_SECRET:-}
+      VNPAY_PAY_URL: ${VNPAY_PAY_URL}
+
+  # UI thử nghiệm ở 8001; mọi nghiệp vụ và phiên đăng nhập dùng backend portal.
+  portal-preview:
+    image: cloud-storage-portal-preview
+    build:
+      context: ./portal
+      dockerfile: Dockerfile.preview
+    restart: unless-stopped
+    depends_on:
+      portal:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:8001:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=5).read()"]
+      interval: 5s
+      timeout: 7s
+      start_period: 15s
+      retries: 12
+
+
+  # Hộp thư thiết kế thử; dữ liệu và SMTP vẫn thuộc Mailpit hiện có ở 8025.
+  mail-preview:
+    image: cloud-storage-mail-preview
+    build:
+      context: ./portal
+      dockerfile: Dockerfile.mail-preview
+    restart: unless-stopped
+    depends_on:
+      mailpit:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:8026:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=5).read()"]
+      interval: 5s
+      timeout: 7s
+      start_period: 15s
+      retries: 12
+
+volumes:
+  db_data:
+  nextcloud_data:

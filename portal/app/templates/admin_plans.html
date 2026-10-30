@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Gói dịch vụ{% endblock %}
+{% block content %}
+<h2>Quản trị</h2>
+{% set active = 'plans' %}{% include "admin_nav.html" %}
+
+<p class="muted">Đổi dung lượng của một gói sẽ tự động cập nhật quota của mọi người dùng đang ở gói đó.</p>
+<table>
+  <thead><tr><th>Mã</th><th>Tên</th><th>Dung lượng (GB)</th><th>Giá / tháng (₫)</th><th>Đang bán</th><th></th></tr></thead>
+  <tbody>
+  {% for p in plans %}
+    <tr>
+      <form method="post" action="/admin/plans/{{ p.id }}">
+        <td>{{ p.code }}</td>
+        <td><input name="name" value="{{ p.name }}" required></td>
+        <td><input type="number" name="quota_gb" value="{{ p.quota_gb }}" min="1" required></td>
+        <td><input type="number" name="price_vnd" value="{{ p.price_vnd }}" min="0" step="1000" required {{ 'readonly' if p.price_vnd == 0 }}></td>
+        <td><input type="checkbox" name="is_active" value="1" {{ 'checked' if p.is_active }} {{ 'disabled' if p.price_vnd == 0 }}></td>
+        <td><button class="btn tiny" type="submit">Lưu</button></td>
+      </form>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

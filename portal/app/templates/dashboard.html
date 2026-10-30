@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}Trang của tôi{% endblock %}
+{% block content %}
+<h2>Xin chào, {{ user.full_name }}</h2>
+
+<section class="grid two">
+  <div class="card">
+    <h3>Dung lượng lưu trữ</h3>
+    {% if usage %}
+      <div class="meter"><span class="{{ 'warn' if usage.percent >= 90 }}" style="width: {{ usage.percent }}%"></span></div>
+      <p><b>{{ usage.used|human_bytes }}</b> / {{ usage.total|human_bytes }} ({{ usage.percent }}%)</p>
+    {% else %}
+      <p class="muted">Chưa đọc được mức sử dụng (Nextcloud đang bận). Tải lại trang sau ít phút.</p>
+    {% endif %}
+    <p>Đăng nhập kho lưu trữ bằng email <b>{{ user.email }}</b> và cùng mật khẩu với cổng này.</p>
+    <a class="btn" href="{{ settings.nc_public_url }}" target="_blank" rel="noopener">Mở kho lưu trữ ↗</a>
+  </div>
+  <div class="card">
+    <h3>Gói hiện tại</h3>
+    <div class="size">{{ user.plan.name }} · {{ user.plan.quota_gb|quota }}</div>
+    <p>{% if user.plan_expires_at %}Hết hạn: <b>{{ user.plan_expires_at|dt }}</b>{% else %}Không giới hạn thời gian{% endif %}</p>
+    {% if not user.quota_synced %}<div class="alert error">Quota đang được đồng bộ lại với kho lưu trữ, vui lòng chờ ít phút.</div>{% endif %}
+    <details>
+      <summary>Đổi mật khẩu</summary>
+      <form method="post" action="/account/password" class="form">
+        <input type="password" name="current" placeholder="Mật khẩu hiện tại" required autocomplete="current-password">
+        <input type="password" name="new" placeholder="Mật khẩu mới (≥ 10 ký tự, chữ và số)" required minlength="10" autocomplete="new-password">
+        <input type="password" name="new2" placeholder="Nhập lại mật khẩu mới" required minlength="10" autocomplete="new-password">
+        <button class="btn small" type="submit">Lưu</button>
+      </form>
+    </details>
+  </div>
+</section>
+
+<section>
+  <h2>Nâng cấp / gia hạn</h2>
+  <div class="grid plans">
+    {% for p in plans if p.price_vnd > 0 %}
+    <form class="card plan {{ 'featured' if p.code == 'standard' }}" method="post" action="/billing/checkout">
+      <h3>{{ p.name }}</h3>
+      <div class="size">{{ p.quota_gb|quota }}</div>
+      <div class="price">{{ p.price_vnd|vnd }}<small>/tháng</small></div>
+      <input type="hidden" name="plan_code" value="{{ p.code }}">
+      <select name="months">
+        {% for m, billed in month_choices.items() %}
+          <option value="{{ m }}">{{ m }} tháng – {{ (p.price_vnd * billed)|vnd }}{{ ' (tặng 2 tháng)' if m == 12 }}</option>
+        {% endfor %}
+      </select>
+      <button class="btn" type="submit">{{ 'Gia hạn' if user.plan_id == p.id else 'Thanh toán VNPay' }}</button>
+    </form>
+    {% endfor %}
+  </div>
+  <p class="muted">Đổi sang gói khác sẽ áp dụng ngay và tính lại thời hạn từ hôm nay (chưa quy đổi phần còn lại của gói cũ).</p>
+</section>
+
+<section>
+  <h2>Lịch sử đơn hàng</h2>
+  {% if orders %}
+  <table>
+    <thead><tr><th>Mã</th><th>Gói</th><th>Thời hạn</th><th>Số tiền</th><th>Trạng thái</th><th>Ngày tạo</th></tr></thead>
+    <tbody>
+    {% for o in orders %}
+      <tr><td>{{ o.txn_ref }}</td><td>{{ o.plan.name }}</td><td>{{ o.months }} tháng</td><td>{{ o.amount_vnd|vnd }}</td>
+          <td><span class="tag {{ o.status }}">{{ {'paid': 'Đã thanh toán', 'pending': 'Chờ thanh toán', 'failed': 'Thất bại'}[o.status] }}</span></td>
+          <td>{{ o.created_at|dt }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<p class="muted">Chưa có đơn hàng nào.</p>{% endif %}
+</section>
+{% endblock %}

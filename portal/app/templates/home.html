@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Lưu trữ đám mây{% endblock %}
+{% block content %}
+<section class="hero">
+  <h1>Lưu trữ, đồng bộ và chia sẻ file<br>trên đám mây của riêng bạn</h1>
+  <p>Đăng ký trong một phút, dùng miễn phí 5 GB. Cần thêm dung lượng? Nâng cấp bất cứ lúc nào, thanh toán qua VNPay.</p>
+  <div class="actions">
+    {% if user %}
+      <a class="btn" href="{{ '/admin' if user.role == 'admin' else '/dashboard' }}">Vào trang của tôi</a>
+    {% else %}
+      <a class="btn" href="/register">Bắt đầu miễn phí</a>
+      <a class="btn ghost" href="/login">Tôi đã có tài khoản</a>
+    {% endif %}
+  </div>
+</section>
+
+<section class="features">
+  <div class="card"><h3>📁 Giao diện quen thuộc</h3><p>Tải lên, tải xuống, thư mục, chia sẻ liên kết, ứng dụng máy tính và điện thoại nhờ Nextcloud.</p></div>
+  <div class="card"><h3>🔐 Riêng tư</h3><p>Dữ liệu nằm trên hạ tầng do bạn kiểm soát, mỗi người dùng có kho lưu trữ và hạn mức riêng.</p></div>
+  <div class="card"><h3>💳 Gói linh hoạt</h3><p>Nâng cấp hoặc gia hạn theo tháng, dung lượng cập nhật ngay sau khi thanh toán.</p></div>
+</section>
+
+<section id="plans">
+  <h2>Bảng giá</h2>
+  <div class="grid plans">
+    {% for p in plans %}
+    <div class="card plan {{ 'featured' if p.code == 'standard' }}">
+      <h3>{{ p.name }}</h3>
+      <div class="size">{{ p.quota_gb|quota }}</div>
+      <div class="price">{% if p.price_vnd == 0 %}Miễn phí{% else %}{{ p.price_vnd|vnd }}<small>/tháng</small>{% endif %}</div>
+      {% if not user %}<a class="btn {{ '' if p.code == 'standard' else 'ghost' }}" href="/register">Chọn gói</a>{% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  <p class="muted">Mua 12 tháng chỉ trả 10 tháng.</p>
+</section>
+{% endblock %}

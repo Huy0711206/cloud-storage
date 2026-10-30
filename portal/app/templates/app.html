@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#2563eb">
+  <meta name="description" content="CloudBox — Quản lý kho lưu trữ, gói dịch vụ và thanh toán của bạn.">
+  <title>{{ page.title or "Không gian lưu trữ của bạn" }} · CloudBox</title>
+  <script>
+    try { var theme = localStorage.getItem("cloudbox-theme") || "system"; document.documentElement.classList.toggle("dark", theme === "dark" || (theme === "system" && matchMedia("(prefers-color-scheme: dark)").matches)); } catch(e) {}
+  </script>
+  {% for stylesheet in ui_assets.css %}<link rel="stylesheet" href="{{ stylesheet }}">{% endfor %}
+</head>
+<body>
+  <div id="root"><div class="boot-screen" role="status" aria-label="Đang tải CloudBox"><div class="boot-logo">CloudBox</div><div class="boot-line"></div><p>Đang mở không gian của bạn…</p></div></div>
+  <noscript><p>CloudBox cần JavaScript để hiển thị giao diện. Hãy bật JavaScript và tải lại trang.</p></noscript>
+  <script id="cloudbox-data" type="application/json">{{ page | tojson }}</script>
+  <script type="module" src="{{ ui_assets.js }}"></script>
+</body>
+</html>

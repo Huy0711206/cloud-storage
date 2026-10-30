@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Đăng ký{% endblock %}
+{% block content %}
+<div class="narrow card">
+  <h2>Tạo tài khoản</h2>
+  {% if error %}<div class="alert error">{{ error }}</div>{% endif %}
+  <form method="post" action="/register" class="form">
+    <label>Họ và tên
+      <input name="full_name" value="{{ form.get('full_name', '') }}" required maxlength="120" autocomplete="name">
+    </label>
+    <label>Email
+      <input type="email" name="email" value="{{ form.get('email', '') }}" required autocomplete="email">
+    </label>
+    <label>Mật khẩu <small>(≥ 10 ký tự, gồm chữ và số)</small>
+      <input type="password" name="password" required minlength="10" autocomplete="new-password">
+    </label>
+    <label>Nhập lại mật khẩu
+      <input type="password" name="password2" required minlength="10" autocomplete="new-password">
+    </label>
+    <button class="btn" type="submit">Đăng ký</button>
+  </form>
+  <p class="muted">Đã có tài khoản? <a href="/login">Đăng nhập</a></p>
+</div>
+{% endblock %}

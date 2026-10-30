@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Đơn hàng{% endblock %}
+{% block content %}
+<h2>Quản trị</h2>
+{% set active = 'orders' %}{% include "admin_nav.html" %}
+
+<table>
+  <thead><tr><th>Mã</th><th>Người dùng</th><th>Gói</th><th>Số tiền</th><th>Trạng thái</th><th>Mã GD VNPay</th><th>Tạo lúc</th><th>Thanh toán lúc</th></tr></thead>
+  <tbody>
+  {% for o in orders %}
+    <tr><td>{{ o.txn_ref }}</td><td>{{ o.user.email }}</td><td>{{ o.plan.name }} · {{ o.months }} tháng</td><td>{{ o.amount_vnd|vnd }}</td>
+        <td><span class="tag {{ o.status }}">{{ o.status }}</span></td><td>{{ o.gateway_txn_no or '—' }}</td>
+        <td>{{ o.created_at|dt }}</td><td>{{ o.paid_at|dt }}</td></tr>
+  {% else %}<tr><td colspan="8" class="muted">Chưa có đơn hàng.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}
