@@ -10,7 +10,7 @@ services:
       POSTGRES_DB: nextcloud
     volumes:
       - db_data:/var/lib/postgresql/data
-      - ./db-init:/docker-entrypoint-initdb.d:ro   # tạo thêm database "portal"
+      - ./infrastructure/docker/db-init:/docker-entrypoint-initdb.d:ro   # tạo thêm database "portal"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d nextcloud"]
       interval: 5s
@@ -27,7 +27,7 @@ services:
       retries: 20
 
   nextcloud:
-    image: nextcloud:apache
+    image: nextcloud@sha256:e0b1a2af52c82c07b7a0e8e59878bd8769e704447734d5d238a836982f51b9c8 # 35.0.2, existing image
     restart: unless-stopped
     depends_on:
       db:
@@ -56,16 +56,22 @@ services:
       retries: 30
     volumes:
       - nextcloud_data:/var/www/html
+      - ./apps/nextcloud/cloudbox_theme:/var/www/html/custom_apps/cloudbox_theme:ro
 
   mailpit:
-    # Hộp thư giả lập để xem email xác thực khi chạy thử. Giao diện: http://localhost:8025
-    image: axllent/mailpit:latest
+    # Complete native Mailpit v1.32.0 with CloudBox styling; SMTP stays internal.
+    image: cloud-storage-mailpit-unified:1.32.0
+    build: ./apps/mail
     restart: unless-stopped
     ports:
-      - "8025:8025"
+      - "127.0.0.1:8025:8025"
+    environment:
+      MP_DATABASE: /data/mailpit.db
+    volumes:
+      - mailpit_data:/data
 
   portal:
-    build: ./portal
+    build: ./apps/portal
     restart: unless-stopped
     depends_on:
       db:
@@ -102,45 +108,10 @@ services:
       VNPAY_HASH_SECRET: ${VNPAY_HASH_SECRET:-}
       VNPAY_PAY_URL: ${VNPAY_PAY_URL}
 
-  # UI thử nghiệm ở 8001; mọi nghiệp vụ và phiên đăng nhập dùng backend portal.
-  portal-preview:
-    image: cloud-storage-portal-preview
-    build:
-      context: ./portal
-      dockerfile: Dockerfile.preview
-    restart: unless-stopped
-    depends_on:
-      portal:
-        condition: service_healthy
-    ports:
-      - "127.0.0.1:8001:8000"
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=5).read()"]
-      interval: 5s
-      timeout: 7s
-      start_period: 15s
-      retries: 12
-
-
-  # Hộp thư thiết kế thử; dữ liệu và SMTP vẫn thuộc Mailpit hiện có ở 8025.
-  mail-preview:
-    image: cloud-storage-mail-preview
-    build:
-      context: ./portal
-      dockerfile: Dockerfile.mail-preview
-    restart: unless-stopped
-    depends_on:
-      mailpit:
-        condition: service_healthy
-    ports:
-      - "127.0.0.1:8026:8000"
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=5).read()"]
-      interval: 5s
-      timeout: 7s
-      start_period: 15s
-      retries: 12
 
 volumes:
   db_data:
   nextcloud_data:
+  mailpit_data:
+    external: true
+    name: cloud-storage_mailpit_data

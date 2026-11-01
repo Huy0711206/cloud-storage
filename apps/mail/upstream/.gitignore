@@ -1,0 +1,11 @@
+/node_modules/
+/send
+/sendmail/sendmail
+/server/ui/dist
+/Makefile
+/mailpit*
+/.idea
+*.old
+*.db
+/test-results
+/playwright-report

@@ -1,0 +1,21 @@
+/* Canonical CloudBox semantic tokens; generated copies use scripts/sync-design.py. */
+:root {
+ --cb-ground:#FCFCFD; --cb-muted:#F3F4F6; --cb-panel:#FFFFFF;
+ --cb-ink:#16191F; --cb-secondary:#454C58; --cb-rule:#DDE0E6;
+ --cb-accent:#074CE0; --cb-on-accent:#FFFFFF; --cb-tint:#EDF2FF;
+ --cb-input:#77808F; --cb-radius:12px; --cb-motion:160ms;
+ --cb-font:"Be Vietnam Pro",system-ui,sans-serif;
+}
+:root.dark, :root[data-bs-theme="dark"], :root:has(body[data-theme-dark]), :root:has(body[data-theme-dark-highcontrast]) {
+ --cb-ground:#11141A; --cb-muted:#202630; --cb-panel:#181D26;
+ --cb-ink:#F4F6FB; --cb-secondary:#BAC3D2; --cb-rule:#364050;
+ --cb-accent:#8EB1FF; --cb-on-accent:#12213C; --cb-tint:#263859;
+ --cb-input:#7E8DA5;
+}
+@media(prefers-color-scheme:dark) {
+ :root:has(body[data-theme-default]), :root:has(body#body-login:not([data-theme-light])) {
+  --cb-ground:#11141A; --cb-muted:#202630; --cb-panel:#181D26;
+  --cb-ink:#F4F6FB; --cb-secondary:#BAC3D2; --cb-rule:#364050;
+  --cb-accent:#8EB1FF; --cb-on-accent:#12213C; --cb-tint:#263859; --cb-input:#7E8DA5;
+ }
+}

@@ -1,0 +1,6 @@
+{
+  "file": "dist/files-main.js.map",
+  "sha256": "2e848196bdb74ac0807f4ca68e07754392b8c69a2a9df766fec63ab523e6ea6c",
+  "source": "webpack:///nextcloud/apps/files/src/sidebar/providers/filesStore.ts",
+  "excerpt": "subscribe('viewer:sidebar:open', async ({ source, path }) => {\n        logger.debug('sidebar: opening for node from Viewer.', { source });\n        try {\n            // Currently (as of Nextcloud 35) the viewer not fully uses the Node API\n            // the emitted node is only partially filled, so we need to resolve it to a full node.\n            const node = useFilesStore(pinia).getNode(source)\n                ?? await fetchNode(path);\n            if (!node) {\n                throw new Error(`Node '${source}' could not be resolved`);\n            }\n            useSidebarStore(pinia).open(node);\n        }\n        catch (error) {\n            logger.error('sidebar: could not open for the node from the Viewer.', { error, source });\n        }\n    });\n    return {\n        node,\n        folder,\n        view,\n        setNode,\n        onOpenStateChanged,\n    };\n}\n"
+}

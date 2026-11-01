@@ -1,0 +1,153 @@
+package storage
+
+import (
+	"encoding/json"
+	"net/mail"
+	"os"
+	"regexp"
+	"strings"
+	"sync"
+
+	"github.com/axllent/mailpit/internal/html2text"
+	"github.com/axllent/mailpit/internal/logger"
+	"github.com/axllent/mailpit/internal/tools"
+	"github.com/jhillyerd/enmime/v2"
+)
+
+var (
+	// for stats to prevent import cycle
+	mu sync.RWMutex
+	// StatsDeleted for counting the number of messages deleted
+	StatsDeleted uint64
+
+	// cleanStringRe is used to remove unwanted characters from stored search text and search queries
+	cleanStringRe = regexp.MustCompile(`(\r?\n|\t|>|<|"|\,|;|\(|\))`)
+
+	// envelopeParser is a shared enmime parser instance used for message parsing
+	envelopeParser = enmime.NewParser(enmime.DisableCharacterDetection(true), enmime.MaxMIMEParts(500))
+)
+
+// AddTempFile adds a file to the slice of files to delete on exit
+func AddTempFile(s string) {
+	temporaryFiles = append(temporaryFiles, s)
+}
+
+// DeleteTempFiles will delete files added via AddTempFiles
+func deleteTempFiles() {
+	for _, f := range temporaryFiles {
+		if err := os.Remove(f); err == nil {
+			logger.Log().Debugf("removed temporary file: %s", f)
+		}
+	}
+}
+
+// Return a header field as a []*mail.Address, or "null" is not found/empty
+func addressToSlice(env *enmime.Envelope, key string) []*mail.Address {
+	data, err := env.AddressList(key)
+	if err != nil || data == nil {
+		return []*mail.Address{}
+	}
+
+	for _, a := range data {
+		normalizeAddress(a)
+	}
+
+	return data
+}
+
+// normalizeAddress re-quotes the local-part of an email address when it
+// contains characters not valid in a dot-atom (RFC 5321 §4.1.2).
+// Go's mail.Address stores the decoded local-part, stripping quotes during
+// parsing; this restores them so the Address field is a valid addr-spec.
+//
+// Rather than reimplementing RFC quoting rules, this delegates to
+// mail.Address.String() which already handles quoting and escaping
+// correctly, then extracts the addr-spec from the angle brackets.
+func normalizeAddress(a *mail.Address) {
+	s := a.String()
+	start := strings.LastIndex(s, "<")
+	end := strings.LastIndex(s, ">")
+	if start >= 0 && end > start {
+		a.Address = s[start+1 : end]
+	}
+}
+
+// Generate the search text based on some header fields (to, from, subject etc)
+// and either the stripped HTML body (if exists) or text body
+func createSearchText(env *enmime.Envelope) string {
+	var b strings.Builder
+
+	_, _ = b.WriteString(env.GetHeader("From") + " ")
+	_, _ = b.WriteString(env.GetHeader("Subject") + " ")
+	_, _ = b.WriteString(env.GetHeader("To") + " ")
+	_, _ = b.WriteString(env.GetHeader("Cc") + " ")
+	_, _ = b.WriteString(env.GetHeader("Bcc") + " ")
+	_, _ = b.WriteString(env.GetHeader("Reply-To") + " ")
+	_, _ = b.WriteString(env.GetHeader("Return-Path") + " ")
+
+	h, _ := html2text.Strip(env.HTML, true)
+	if h != "" {
+		_, _ = b.WriteString(h + " ")
+	} else {
+		_, _ = b.WriteString(env.Text + " ")
+	}
+	// add attachment filenames
+	for _, a := range env.Attachments {
+		_, _ = b.WriteString(a.FileName + " ")
+	}
+
+	d := cleanString(b.String())
+
+	return d
+}
+
+// CleanString removes unwanted characters from stored search text and search queries
+func cleanString(str string) string {
+	// replace \uFEFF with space, see https://github.com/golang/go/issues/42274#issuecomment-1017258184
+	str = strings.ReplaceAll(str, string('\uFEFF'), " ")
+
+	// remove/replace new lines
+	str = cleanStringRe.ReplaceAllString(str, " ")
+
+	// remove duplicate whitespace and trim
+	return strings.ToLower(strings.Join(strings.Fields(strings.TrimSpace(str)), " "))
+}
+
+// LogMessagesDeleted logs the number of messages deleted
+func logMessagesDeleted(n int) {
+	mu.Lock()
+	StatsDeleted = StatsDeleted + tools.SafeUint64(n)
+	mu.Unlock()
+}
+
+// IsFile returns whether a path is a file
+func isFile(path string) bool {
+	info, err := os.Stat(path)
+	if os.IsNotExist(err) || !info.Mode().IsRegular() {
+		return false
+	}
+
+	return true
+}
+
+// likeEscaper escapes the SQL LIKE wildcards `%` and `_` (and the escape character
+// itself) so they match literally. Queries must use `LIKE ? ESCAPE '\'`.
+var likeEscaper = strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`)
+
+// escLikeChars escapes a search term for use in a SQL LIKE pattern
+func escLikeChars(s string) string {
+	return likeEscaper.Replace(s)
+}
+
+// escJSONChars encodes a search term the way encoding/json stores it in the message
+// metadata (eg: `&` as `\u0026` and `\` as `\\`), so it can be matched against
+// the To, From, Cc, Bcc and ReplyTo JSON.
+func escJSONChars(s string) string {
+	b, err := json.Marshal(s)
+	if err != nil {
+		return s
+	}
+
+	// remove the surrounding quotes
+	return string(b[1 : len(b)-1])
+}

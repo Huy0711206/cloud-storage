@@ -1,0 +1,17 @@
+{
+  "tested_codepoints": 98,
+  "fonts": [
+    {
+      "file": "BeVietnamPro-Bold.ttf",
+      "missing_codepoints": []
+    },
+    {
+      "file": "BeVietnamPro-Regular.ttf",
+      "missing_codepoints": []
+    },
+    {
+      "file": "BeVietnamPro-SemiBold.ttf",
+      "missing_codepoints": []
+    }
+  ]
+}

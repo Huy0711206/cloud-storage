@@ -1,0 +1,7 @@
+<?xml version="1.0"?>
+<info xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://apps.nextcloud.com/schema/apps/info.xsd">
+ <id>cloudbox_theme</id><name>CloudBox visual identity</name><summary>Shared CloudBox skin for the native Nextcloud UI</summary>
+ <description>Styles native Nextcloud through its public template event. No route, authentication, app or data replacement. Disable to restore upstream rendering.</description>
+ <version>1.0.0</version><licence>agpl</licence><author>CloudBox project</author><namespace>CloudboxTheme</namespace><category>customization</category>
+ <types><prelogin/></types><dependencies><nextcloud min-version="35" max-version="35"/></dependencies>
+</info>

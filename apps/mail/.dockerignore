@@ -1,0 +1,3 @@
+upstream/.git
+upstream/node_modules
+upstream/server/ui/dist

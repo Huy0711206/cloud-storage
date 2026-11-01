@@ -1,0 +1,97 @@
+@font-face{font-family:"Be Vietnam Pro";font-style:normal;font-weight:400;font-display:swap;src:url("./fonts/BeVietnamPro-Regular.ttf") format("truetype");}
+@font-face{font-family:"Be Vietnam Pro";font-style:normal;font-weight:600;font-display:swap;src:url("./fonts/BeVietnamPro-SemiBold.ttf") format("truetype");}
+@font-face{font-family:"Be Vietnam Pro";font-style:normal;font-weight:700;font-display:swap;src:url("./fonts/BeVietnamPro-Bold.ttf") format("truetype");}
+/* Canonical CloudBox semantic tokens; generated copies use scripts/sync-design.py. */
+:root {
+ --cb-ground:#FCFCFD; --cb-muted:#F3F4F6; --cb-panel:#FFFFFF;
+ --cb-ink:#16191F; --cb-secondary:#454C58; --cb-rule:#DDE0E6;
+ --cb-accent:#074CE0; --cb-on-accent:#FFFFFF; --cb-tint:#EDF2FF;
+ --cb-input:#77808F; --cb-radius:12px; --cb-motion:160ms;
+ --cb-font:"Be Vietnam Pro",system-ui,sans-serif;
+}
+:root.dark, :root[data-bs-theme="dark"], :root:has(body[data-theme-dark]), :root:has(body[data-theme-dark-highcontrast]) {
+ --cb-ground:#11141A; --cb-muted:#202630; --cb-panel:#181D26;
+ --cb-ink:#F4F6FB; --cb-secondary:#BAC3D2; --cb-rule:#364050;
+ --cb-accent:#8EB1FF; --cb-on-accent:#12213C; --cb-tint:#263859;
+ --cb-input:#7E8DA5;
+}
+@media(prefers-color-scheme:dark) {
+ :root:has(body[data-theme-default]), :root:has(body#body-login:not([data-theme-light])) {
+  --cb-ground:#11141A; --cb-muted:#202630; --cb-panel:#181D26;
+  --cb-ink:#F4F6FB; --cb-secondary:#BAC3D2; --cb-rule:#364050;
+  --cb-accent:#8EB1FF; --cb-on-accent:#12213C; --cb-tint:#263859; --cb-input:#7E8DA5;
+ }
+}
+
+/* Original implementation inspired by the supplied glass references, no sample asset/code. */
+.cb-theme { display:inline-flex; flex-shrink:0; align-items:center; gap:2px; margin:0; padding:4px; min-width:0;
+ border:1px solid var(--cb-rule); border-radius:999px; background:var(--cb-panel);
+ box-shadow:inset 0 1px 1px #ffffff60,0 2px 8px #13213a0a; }
+.cb-theme legend { position:absolute; width:1px; height:1px; padding:0; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
+.cb-theme label { position:relative; display:flex; align-items:center; justify-content:center; min-width:38px; height:36px; cursor:pointer; border-radius:999px; margin:0; }
+.cb-theme input { position:absolute; opacity:0; width:1px; height:1px; }
+.cb-theme label span { display:flex; align-items:center; justify-content:center; gap:6px; width:100%; height:100%; padding:0 10px;
+ color:var(--cb-secondary); border-radius:inherit; transition:background var(--cb-motion) ease-out,box-shadow var(--cb-motion) ease-out; }
+.cb-theme input:checked + span { color:var(--cb-accent); background:var(--cb-panel); box-shadow:inset 0 1px 2px #ffffff80,0 2px 5px #10244a26; }
+.cb-theme input:focus-visible + span { outline:3px solid var(--cb-accent); outline-offset:2px; }
+.cb-theme svg { width:17px; height:17px; }
+.cb-theme .cb-theme-name { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); }
+@supports(backdrop-filter:blur(12px)) { .cb-theme { background:color-mix(in srgb,var(--cb-panel),transparent 16%); backdrop-filter:blur(12px) saturate(115%); } }
+@media(pointer:coarse) { .cb-theme label { min-width:44px; height:44px; } }
+@media(prefers-reduced-motion:reduce) { .cb-theme * { transition:none!important; } }
+@media(forced-colors:active) { .cb-theme { background:Canvas; box-shadow:none; backdrop-filter:none; } .cb-theme input:checked+span { border:2px solid Highlight; color:Highlight; box-shadow:none; } }
+
+/* Keep OS high-contrast rendering native. */
+@media (prefers-contrast: no-preference), (prefers-contrast: less) {
+/* Nextcloud 35 public theme variables and stable semantic application containers only.
+   High contrast, dyslexia font, native layout, dialogs, menus, app registration and routes are retained. */
+body:not([data-theme-light-highcontrast]):not([data-theme-dark-highcontrast]) {
+ --color-main-background:var(--cb-panel);--color-main-background-rgb:255,255,255;
+ --color-main-text:var(--cb-ink);--color-text-maxcontrast:var(--cb-secondary);--color-text-maxcontrast-default:var(--cb-secondary);
+ --color-background-hover:var(--cb-muted);--color-background-dark:var(--cb-muted);--color-background-darker:var(--cb-rule);
+ --color-border:var(--cb-rule);--color-border-dark:var(--cb-input);--color-border-maxcontrast:var(--cb-input);
+ 
+ 
+ 
+ 
+ 
+ 
+ --border-radius:8px;--border-radius-large:12px;--border-radius-element:8px;--border-radius-container:12px;
+ --header-height:64px;--header-menu-item-height:44px;
+ --color-box-shadow:rgba(20,33,58,.12);
+ background-color:var(--cb-ground);
+}
+body[data-theme-dark]:not([data-theme-dark-highcontrast]){--color-main-background-rgb:24,29,38}
+@media(prefers-color-scheme:dark){body[data-theme-default]{--color-main-background-rgb:24,29,38}}
+body:not([data-theme-opendyslexic]) {--font-face:var(--cb-font);font-family:var(--font-face);font-size:15px;line-height:1.6}
+body:not([data-theme-light-highcontrast]):not([data-theme-dark-highcontrast]) #header:not(.header-guest){
+ background:var(--cb-panel);border-bottom:1px solid var(--cb-rule);box-shadow:0 2px 6px #14213a05;
+ --color-background-plain:var(--cb-panel);--color-background-plain-text:var(--cb-ink);--color-background-plain-text-translucent:var(--cb-secondary);
+ --background-invert-if-bright:none;--background-invert-if-dark:none;--header-menu-icon-mask:none;
+}
+body:not([data-theme-light-highcontrast]):not([data-theme-dark-highcontrast]) #header :is(.header-appname,.header-menu__trigger,.unified-search__trigger){color:var(--cb-ink)}
+#header #nextcloud{padding-inline-start:60px}
+#header #nextcloud .logo{background-image:var(--image-logoheader,var(--image-logo,url('../img/cloudbox.svg')));background-size:36px;filter:none;opacity:1}
+body:not([data-theme-light-highcontrast]):not([data-theme-dark-highcontrast]) :is(#app-navigation,#app-navigation-vue){background:var(--cb-ground);border-inline-end:1px solid var(--cb-rule);box-shadow:none}
+body:not([data-theme-light-highcontrast]):not([data-theme-dark-highcontrast]) :is(#app-content,#app-content-vue){background:var(--cb-panel);border:1px solid var(--cb-rule);border-radius:12px;box-shadow:0 2px 8px #14213a05}
+body:not([data-theme-light-highcontrast]):not([data-theme-dark-highcontrast]) :is(#app-sidebar,.app-sidebar){border-inline-start:1px solid var(--cb-rule);background:var(--cb-panel)}
+body :is(h1,h2,h3){letter-spacing:-.035em}
+body#body-login{}
+body#body-login :is(.login-box,.login-form){border-radius:12px}
+body#body-login #header .logo{background-image:var(--image-logoheader,var(--image-logo,url('../img/cloudbox.svg')));filter:none}
+/* Theme controls remain Nextcloud's own account Appearance settings; preserve high-contrast/font options. */
+body .theming :is(.theming__preview,.theming__preview-list){border-radius:12px}
+@media(max-width:767px){body:not([data-theme-light-highcontrast]):not([data-theme-dark-highcontrast]){--header-height:56px}#header #nextcloud{padding-inline-start:48px}#header #nextcloud .logo{background-size:30px}}
+@media(prefers-reduced-motion:reduce){body *,body *:before,body *:after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
+@media(forced-colors:active){body #header,body #app-content,body :is(#app-navigation,#app-navigation-vue){background:Canvas;color:CanvasText;border-color:CanvasText;box-shadow:none}}
+
+/* Solid, legible native guest form. Native image/background preferences remain configurable. */
+body#body-login {--color-main-background-translucent:var(--cb-panel);--color-main-background-blur:var(--cb-panel)}
+body#body-login .guest-box {background:var(--cb-panel);border:1px solid var(--cb-rule);border-radius:12px;box-shadow:0 12px 40px #14213a0d;max-width:calc(100vw - 32px)}
+body#body-login .login-box {width:380px;padding:28px 24px}
+body#body-login .header-guest .logo {width:64px;height:64px;background-size:contain}
+body#body-login .login-box h2 {font-size:22px;font-weight:600;line-height:1.4;margin-bottom:20px}
+body#body-login .login-box :is(input,button) {font-size:15px;min-height:44px}
+@media(max-width:390px){body#body-login .login-box{padding:24px 16px}body#body-login .login-box h2{font-size:20px}body#body-login .login-box input{font-size:16px}}
+
+}

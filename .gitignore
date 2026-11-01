@@ -3,4 +3,13 @@ __pycache__/
 *.pyc
 .pytest_cache/
 *.db
-portal/frontend/dist-mail/
+apps/portal/frontend/dist-mail/
+.online/
+
+# Local UI rollback snapshots and runtime data
+.unified-backup/
+.runtime/
+
+# Local output files and source-generation state
+apps/portal/frontend/dist-files/
+/cloudbox-don-hang.csv

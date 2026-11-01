@@ -1,0 +1,61 @@
+/* Keep OS high-contrast rendering native. */
+@media (prefers-contrast: no-preference), (prefers-contrast: less) {
+/* Nextcloud 35 public theme variables and stable semantic application containers only.
+   High contrast, dyslexia font, native layout, dialogs, menus, app registration and routes are retained. */
+body:not([data-theme-light-highcontrast]):not([data-theme-dark-highcontrast]) {
+ --color-main-background:var(--cb-panel);--color-main-background-rgb:255,255,255;
+ --color-main-text:var(--cb-ink);--color-text-maxcontrast:var(--cb-secondary);--color-text-maxcontrast-default:var(--cb-secondary);
+ --color-background-hover:var(--cb-muted);--color-background-dark:var(--cb-muted);--color-background-darker:var(--cb-rule);
+ --color-border:var(--cb-rule);--color-border-dark:var(--cb-input);--color-border-maxcontrast:var(--cb-input);
+ 
+ 
+ 
+ 
+ 
+ 
+ --border-radius:8px;--border-radius-large:12px;--border-radius-element:8px;--border-radius-container:12px;
+ --header-height:64px;--header-menu-item-height:44px;
+ --color-box-shadow:rgba(20,33,58,.12);
+ background-color:var(--cb-ground);
+}
+body[data-theme-dark]:not([data-theme-dark-highcontrast]){--color-main-background-rgb:24,29,38}
+@media(prefers-color-scheme:dark){body[data-theme-default]{--color-main-background-rgb:24,29,38}}
+body:not([data-theme-opendyslexic]) {--font-face:var(--cb-font);font-family:var(--font-face);font-size:15px;line-height:1.6}
+body:not([data-theme-light-highcontrast]):not([data-theme-dark-highcontrast]) #header:not(.header-guest){
+ background:var(--cb-panel);border-bottom:1px solid var(--cb-rule);box-shadow:0 2px 6px #14213a05;
+ --color-background-plain:var(--cb-panel);--color-background-plain-text:var(--cb-ink);--color-background-plain-text-translucent:var(--cb-secondary);
+ --background-invert-if-bright:none;--background-invert-if-dark:none;--header-menu-icon-mask:none;
+}
+body:not([data-theme-light-highcontrast]):not([data-theme-dark-highcontrast]) #header :is(.header-appname,.header-menu__trigger,.unified-search__trigger){color:var(--cb-ink)}
+#header #nextcloud{padding-inline-start:60px}
+#header #nextcloud .logo{background-image:var(--image-logoheader,var(--image-logo,url('../img/cloudbox.svg')));background-size:36px;filter:none;opacity:1}
+body:not([data-theme-light-highcontrast]):not([data-theme-dark-highcontrast]) :is(#app-navigation,#app-navigation-vue){background:var(--cb-ground);border-inline-end:1px solid var(--cb-rule);box-shadow:none}
+body:not([data-theme-light-highcontrast]):not([data-theme-dark-highcontrast]) :is(#app-content,#app-content-vue){background:var(--cb-panel);border:1px solid var(--cb-rule);border-radius:12px;box-shadow:0 2px 8px #14213a05}
+body:not([data-theme-light-highcontrast]):not([data-theme-dark-highcontrast]) :is(#app-sidebar,.app-sidebar){border-inline-start:1px solid var(--cb-rule);background:var(--cb-panel)}
+body :is(h1,h2,h3){letter-spacing:-.035em}
+body#body-login{}
+body#body-login :is(.login-box,.login-form){border-radius:12px}
+body#body-login #header .logo{background-image:var(--image-logoheader,var(--image-logo,url('../img/cloudbox.svg')));filter:none}
+/* Theme controls remain Nextcloud's own account Appearance settings; preserve high-contrast/font options. */
+body .theming :is(.theming__preview,.theming__preview-list){border-radius:12px}
+@media(max-width:767px){body:not([data-theme-light-highcontrast]):not([data-theme-dark-highcontrast]){--header-height:56px}#header #nextcloud{padding-inline-start:48px}#header #nextcloud .logo{background-size:30px}}
+@media(prefers-reduced-motion:reduce){body *,body *:before,body *:after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
+@media(forced-colors:active){body #header,body #app-content,body :is(#app-navigation,#app-navigation-vue){background:Canvas;color:CanvasText;border-color:CanvasText;box-shadow:none}}
+
+/* Solid, legible native guest form. Native image/background preferences remain configurable. */
+body#body-login {--color-main-background-translucent:var(--cb-panel);--color-main-background-blur:var(--cb-panel)}
+body#body-login .guest-box {background:var(--cb-panel);border:1px solid var(--cb-rule);border-radius:12px;box-shadow:0 12px 40px #14213a0d;max-width:calc(100vw - 32px)}
+body#body-login .login-box {width:380px;padding:28px 24px}
+body#body-login .header-guest .logo {width:64px;height:64px;background-size:contain}
+body#body-login .login-box h2 {font-size:22px;font-weight:600;line-height:1.4;margin-bottom:20px}
+body#body-login .login-box :is(input,button) {font-size:15px;min-height:44px}
+@media(max-width:390px){body#body-login .login-box{padding:24px 16px}body#body-login .login-box h2{font-size:20px}body#body-login .login-box input{font-size:16px}}
+
+}
+
+/* Live native appearance preview; subsequent pages use the saved per-user background. */
+body#body-settings:has(#settings-personal-theming){background-color:var(--color-background-plain)}
+
+/* Size the logo box as well as its background so the native mobile home link never clips it. */
+#header #nextcloud .logo{width:36px;inset-inline-start:12px}
+@media(max-width:767px){#header #nextcloud{padding-inline-start:44px}#header #nextcloud .logo{width:30px;inset-inline-start:7px}}

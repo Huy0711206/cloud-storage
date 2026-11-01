@@ -1,0 +1,4 @@
+# CloudBox current design
+Canonical spec: ../../UNIFIED-DESIGN.md and ../../design-system/tokens.css. The final renderer is src/unified/UnifiedApp.tsx on port 8000, reusing the reviewed preview page renderers with a new, shared skin. Preview port 8001 has been retired; source is retained for rollback.
+Be Vietnam Pro replaces the reference fonts explicitly for Vietnamese coverage (self-hosted OFL). Primary #074CE0, ground #FCFCFD, panel #FFF, ink #16191F; semantic dark tokens; 4/8 rhythm, 24px grid, 12px panels, 160ms controls. Native radio group (light/dark/system), limited glass with solid/blur fallback, keyboard/focus/reduced-motion/forced-colors guards. No new product/business functionality or invented data.
+Full scope, native integrations, QA screenshots and limits: project UNIFIED-* documents. The prior design document is saved in .unified-backup.

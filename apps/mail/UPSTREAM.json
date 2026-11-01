@@ -1,0 +1,26 @@
+{
+  "source": "https://github.com/axllent/mailpit/tree/v1.32.0",
+  "version": "v1.32.0",
+  "archive_sha256": "239e28527f83a7e76765de1a23b4b0c5e49a782f4009ec9788af6703d25397fe",
+  "changed_files": [
+    "esbuild.config.mjs",
+    "server/ui/mailpit.svg",
+    "server/ui-src/app.js",
+    "server/ui-src/App.vue",
+    "server/ui-src/cloudbox/generated.css",
+    "server/ui-src/cloudbox/skin.css",
+    "server/ui-src/cloudbox/theme.js",
+    "server/ui-src/cloudbox/ThemeSwitcher.vue",
+    "server/ui-src/components/AppAbout.vue",
+    "server/ui-src/components/AppSettings.vue",
+    "server/ui-src/views/MailboxView.vue",
+    "server/ui-src/views/MessageView.vue",
+    "server/ui-src/views/NotFoundView.vue",
+    "server/ui-src/views/SearchView.vue",
+    "server/ui-src/cloudbox/fonts/BeVietnamPro-Bold.ttf",
+    "server/ui-src/cloudbox/fonts/BeVietnamPro-OFL.txt",
+    "server/ui-src/cloudbox/fonts/BeVietnamPro-Regular.ttf",
+    "server/ui-src/cloudbox/fonts/BeVietnamPro-SemiBold.ttf"
+  ],
+  "backend_and_lockfiles_unchanged": true
+}
