@@ -2,7 +2,7 @@
 
 These files are not services in the active Compose and do not publish retired ports. Their explicit source/build context, if investigated, is apps/portal (not this directory).
 
-- Dockerfile.preview: historical reference only. Even the pre-refactor active main ignored VITE_UI_VARIANT; this file does not restore the old portal renderer as-is. No new preview entrypoint was introduced.
+- Dockerfile.preview đã được loại bỏ ngày 03/11/2026 vì không còn phục vụ build hoặc triển khai. Bản gốc vẫn có trong lịch sử Git và snapshot riêng.
 - Dockerfile.files-preview and Dockerfile.mail-preview: retained gateway build recipes reference the legacy frontend build configs and legacy/gateways. They are not the production Nextcloud/Mailpit applications and were not deployed or rebuilt during this refactor.
 
 Use the root start-local command for the supported 8000 / 8080 / 8025 applications.

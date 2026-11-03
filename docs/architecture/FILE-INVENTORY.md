@@ -8,7 +8,8 @@
 |---|---|---|
 | Backend/frontend hiện hành | Entrypoint, imports, manifest, route contracts, tests | Phân nhóm feature, giữ logic/URL |
 | Renderer từng gọi preview | PortalApp vẫn dùng overview/landing renderer | Promote vào features; giữ CSS/JSX |
-| Gateway Files/Mail cũ và PreviewApp | Không có service Compose; vẫn có build/test/fixture | Giữ legacy coherent, không chạy cổng cũ |
+| Gateway Files/Mail cũ | Không có service Compose; vẫn có build/test/fixture | Giữ legacy coherent, không chạy cổng cũ |
+| PreviewApp và Dockerfile.preview cũ | Không có entrypoint runtime hoặc service Compose | Đã loại bỏ ngày 03/11/2026; bản gốc còn trong lịch sử Git |
 | Mailpit upstream | Build context/Dockerfile và hash toàn source | Chỉ chuyển nguyên thư mục, không chia lại vendor |
 | Nextcloud theme/Viewer patch backup+fixture | Compose mount, manifest, strict SHA/rollback,17tests | Giữ hoạt động và cả bản gốc để khôi phục |
 | Tài liệu cũ | Nội dung vẫn nói cổng trước hợp nhất hoặc kế hoạch thời điểm cũ | Lưu docs/history, không dùng khởi động |
@@ -19,7 +20,7 @@
 
 ## Ứng viên có thể dọn sau, chưa xóa
 
-- Legacy gateways/preview: chỉ cân nhắc bỏ khi quyết định không cần tham chiếu/build/test/rollback; phải hỏi người dùng về danh sách cụ thể.
+- Legacy gateways/preview: giữ các gateway và test còn phụ thuộc; riêng PreviewApp.tsx và Dockerfile.preview đã được loại bỏ ngày 03/11/2026.
 - CSS cloudbox-<hash> cũ không được manifest hiện tại chọn: có thể còn cache/rollback; giữ, không nhầm thành runtime active.
 - UI atoms không có import hiện tại: thuộc registry component có thể tái sử dụng; chưa đủ căn cứ xóa chỉ vì tìm kiếm không thấy.
 - node_modules/dist/pycache là output/cache, được ignore; không đưa vào source snapshot và không biến thành source archive. Không tự xóa trong đợt này.
