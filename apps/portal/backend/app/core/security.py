@@ -2,9 +2,6 @@ import hashlib
 import hmac
 import os
 
-from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
-
-from .config import settings
 
 _SCRYPT = dict(n=2**14, r=8, p=1, dklen=32)
 
@@ -26,17 +23,3 @@ def verify_password(password: str, stored: str) -> bool:
         return False
 
 
-def _serializer() -> URLSafeTimedSerializer:
-    return URLSafeTimedSerializer(settings.secret_key, salt="verify-email")
-
-
-def make_verify_token(email: str) -> str:
-    return _serializer().dumps(email)
-
-
-def read_verify_token(token: str) -> str | None:
-    """Trả về email nếu token hợp lệ và chưa hết hạn, ngược lại None."""
-    try:
-        return _serializer().loads(token, max_age=settings.verify_token_max_age)
-    except (BadSignature, SignatureExpired):
-        return None

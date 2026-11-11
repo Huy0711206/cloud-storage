@@ -1,12 +1,12 @@
 import { useEffect, useId, useRef, useState, type ComponentProps, type ReactNode } from "react"
-import { AlertCircle, Check, CheckCircle2, Cloud, Inbox, Loader2, Monitor, Moon, Sun, Eye, EyeOff } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { AlertCircle, CheckCircle2, Cloud, Inbox, Loader2, Monitor, Moon, Sun, Eye, EyeOff } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert"
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "@/components/ui/input-group"
 import { cn } from "@/lib/utils"
+
+import {csrfToken} from "@/shared/csrf"
 
 export const money = (n:number) => new Intl.NumberFormat("vi-VN", {style:"currency",currency:"VND",maximumFractionDigits:0}).format(n)
 export const quota = (n:number) => n >= 1024 && n % 1024 === 0 ? String(n/1024)+" TB" : String(n)+" GB"
@@ -26,7 +26,7 @@ export function Form({children,onSubmit,...props}:ComponentProps<"form">) {
    onSubmit?.(event); if(event.defaultPrevented)return
    if(!navigator.onLine && !["localhost","127.0.0.1","[::1]"].includes(location.hostname)){event.preventDefault();setOffline(true);return}
    setOffline(false);setPending(true)
- }}>{children}{pending&&<p className="submit-feedback" role="status"><Loader2 className="size-4 animate-spin" aria-hidden/>Đang xử lý…</p>}{offline&&<p className="form-error" role="alert">Chưa có kết nối Internet. Kiểm tra mạng rồi thử lại.</p>}</form>
+ }}>{(props.method??"get").toLowerCase()!=="get"&&<input type="hidden" name="csrf_token" value={csrfToken()}/ >}{children}{pending&&<p className="submit-feedback" role="status"><Loader2 className="size-4 animate-spin" aria-hidden/>Đang xử lý…</p>}{offline&&<p className="form-error" role="alert">Chưa có kết nối Internet. Kiểm tra mạng rồi thử lại.</p>}</form>
 }
 
 export function StatusBadge({status}:{status:string}) {

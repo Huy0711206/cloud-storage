@@ -1,3 +1,5 @@
+> **Tài liệu lịch sử trước chuyển đổi native và xóa source ngày10/11/2026.** Các lệnh/đường dẫn ba dịch vụ bên dưới ghi nhận trạng thái cũ, không chạy trên dự án hiện hành. Xem [README](../../README.md) và [cây hiện hành](../architecture/PROJECT-STRUCTURE.md). Nội dung lịch sử được giữ nguyên bên dưới.
+
 # Danh mục tệp và quyết định dọn
 
 Đối chiếu snapshot private trước sửa với đường dẫn hiện tại. [Ánh xạ JSON](../../artifacts/qa/refactor-file-map.json) / [CSV](../../artifacts/qa/refactor-file-map.csv) có từng tệp, vai trò, trạng thái, tham chiếu gợi ý và hash gốc. Không sửa baseline cũ để ép đạt. Tham chiếu là gợi ý văn bản có giới hạn; import động, tooling, fallback và rollback được khảo sát riêng.

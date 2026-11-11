@@ -70,6 +70,8 @@ import {
 import { EmptyState, Form, PageHeading, StatusBadge, date, money, quota } from "@/shared/ui"
 import type { Order, PageData, Plan, User } from "@/shared/types"
 
+import {AdminStorageCapacity} from "@/features/billing/benefits"
+
 const termChoices = [1, 3, 12]
 
 export function AdminPage({ data }: { data: PageData }) {
@@ -122,6 +124,7 @@ function OverviewPage({ data }: { data: PageData }) {
         }
       />
 
+      <AdminStorageCapacity/>
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard title="Người dùng" value={data.stats.users} description={`${data.stats.verified} tài khoản đã xác thực`} icon={Users} />
         <MetricCard title="Doanh thu" value={money(data.stats.revenue)} description="Từ các đơn đã thanh toán" icon={Wallet} />

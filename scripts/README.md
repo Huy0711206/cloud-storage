@@ -1,12 +1,9 @@
-# Project commands
+# Lệnh CloudBox hiện hành
 
-Run from the project root. Root commands and scripts/*.py are compatibility entrypoints; implementations are grouped below.
+Root start-local.ps1/.cmd (implementation: development/start-local.ps1) chỉ phục vụ local; không triển khai AWS. Production đã chuyển sang EC2 ngày 10/11/2026, Portal laptop đã dừng. Không chạy lại trên dữ liệu nguồn để tạo production thứ hai. Xem [vận hành AWS](../docs/operations/AWS-ACADEMY.md).
 
-- development/start-local.ps1: local startup, optionally rebuild portal/Mail.
-- operations/online.py and start/stop-online.ps1: existing two Quick Tunnels; .online remains private at project root.
-- maintenance/sync-design.py: packages/design-system to the three application targets.
-- maintenance/patch-viewer.py: dry-run/apply/restore the pinned local Viewer compatibility patch.
-- maintenance/rollback-ui.py: validate/revert/reapply UI images/theme, keep data/ports/current URLs.
-- diagnostics/verify-ui.py: deployment, identity/count, source/baseline and local/public HTTP checks.
+- maintenance/sync-design.py: token/font CloudBox từ packages/design-system; scripts/sync-design.py giữ entry tương thích.
+- operations/one-off/restore-plan-quotas.py: tác vụ ghi DB một lần, không chạy khi QA/khởi động thường ngày.
+- Kiểm chứng: pytest backend, PostgreSQL cloudbox_qa riêng; pnpm check/build frontend; Compose health.
 
-State directories .online and .unified-backup are intentionally not moved. Do not commit/share their contents. docker-compose.yml stays at root to preserve the current project and volume identity. Backward commands such as python online.py status and python scripts/patch-viewer.py continue to work.
+Quick Tunnel, Viewer/rollback/verifier cũ và wrapper của chúng đã xóa theo xác nhận10/11/2026. .online/.runtime/.unified-backup không di chuyển hoặc xóa. Xem ../artifacts/qa/deadcode-cleanup-2026-11-10.md.

@@ -1,16 +1,21 @@
 # CloudBox maintainer context
 
-Read README.md and PROGRESS.md first, then docs/architecture/PROJECT-STRUCTURE.md. Historical docs are under docs/history; their old ports/paths do not override current instructions.
+Read README.md and PROGRESS.md first. Production moved to AWS Academy EC2 on 10/11/2026 after explicit user approval; see docs/operations/AWS-ACADEMY.md. EC2 /opt/cloudbox uses infrastructure/aws Compose sources (db/portal/tunnel), with secrets entered directly by the user on EC2. Laptop Portal is stopped and its data is a retained cutover source, not an active replica. Do not restart it or switch DNS back without migrating newer AWS writes. Academy session/budget limits still apply. The user's approved 09/11/2026 native-storage migration supersedes historical Nextcloud/tunnel-off design decisions.
 
-- Runtime web ports are8000 portal,8080 native Nextcloud,8025 native Mailpit loopback.8001/8081/8026 are retired.
-- The user selected local mode with tunnels OFF at the end of refactor01/11/2026. Do not restart/publicize tunnels unless requested. Keep .env and private .online/.unified-backup/.runtime state out of Git/output.
-- Keep root docker-compose.yml and existing volume/network identity. Never down -v or recreate databases to solve source path issues.
-- Portal: apps/portal/frontend and apps/portal/backend/app. Preserve package app.main:app, current route/form/session contracts and singleton integration modules.
-- Features separate authentication/accounts/storage/billing/payments/administration. Billing owns plans/orders/expiry; payments owns signing/callback/idempotency and invokes billing.
-- Legacy gateways/preview are intentionally retained for tests/reference under apps/portal/legacy and frontend/src/legacy; do not launch their old ports or delete them merely because they are not in Compose.
-- Mailpit upstream stays intact under apps/mail/upstream. Canonical UI tokens/fonts: packages/design-system; use python scripts/sync-design.py then build.
-- Viewer local patch has strict SHA/backup under apps/nextcloud/patches/viewer-close; use python scripts/patch-viewer.py dry-run/apply/restore, do not silence signature checks.
-- Test with disposable SQLite/FakeNC/mock SMTP/payment only. Current commands and exact isolated Docker test invocation are in docs/development/DEVELOPMENT.md and artifacts/qa/refactor-backend-tests.json.
-- Refactor source equivalence tools compare immutable snapshot to reviewed source. They may intentionally fail after new feature edits; review actual differences, never overwrite old evidence/hash merely to pass.
-- Do not overwrite existing user changes. Before permanently deleting uncertain source/backup/docs, present exact candidates and ask the user per their refactor instruction. Inventory: docs/architecture/FILE-INVENTORY.md.
-- Update PROGRESS/docs for material structural changes; evidence goes artifacts/qa, not root. Keep startup wrappers at root compatible.
+- One public CloudBox origin: cloudbox.rachiba.top. Portal owns native file operations and uses PostgreSQL + persistent cloudbox_data. No iframe/proxy/SSO dependency on Nextcloud.
+- Preserve root Compose project/volume/network identity and all identities, hashes, plans, orders and payment history. Never down -v or recreate a database to solve paths.
+- Legacy Nextcloud/Mailpit/gateway SOURCE and tooling were retired by explicit user approval on10/11/2026. Retain original data/volumes/database read-only; never start old services to solve CloudBox issues.
+- Do not enable Docker/CloudBox autostart, purchase services or deploy AWS without user instructions.
+- Features separate auth/accounts/storage/billing/payments/admin. Billing owns price/expiry, payments owns signing/idempotency and atomic activation, storage enforces current plan directly.
+- Runtime entrypoint app.main:app. API file routes enforce server-side ownership and source-origin checks; OTP/reset codes and credentials must never reach logs/output.
+- Keep private .env/.online/.runtime/.unified-backup out of Git/output. Never overwrite user environment settings with examples.
+- Use disposable SQLite/fake mail/payment for default tests; concurrency tests only on an explicitly disposable cloudbox_qa PostgreSQL database. Production migration source is read-only and requires checksum/ownership/commerce proof before cutover.
+- Preserve pricing UI and DB prices. Canonical design tokens/fonts: packages/design-system. Do not change dependencies merely to silence warnings.
+- Keep migration/rehearsal/models/source-data tests; legacy gateway-specific tests were retired with their features. Do not delete uncertain remaining code or original source volumes; no new backups.
+- Update PROGRESS/docs and artifacts/qa for material changes; distinguish real SMTP acceptance from user-confirmed inbox delivery and real transactions from mocks.
+
+- 09/11/2026 plan-benefits approval: latest user request restores catalog quotas 5/100/500/2048 GiB for existing users too; prices unchanged. Compose shared STORAGE_POOL_LIMIT_BYTES=20 GiB. Preserve data on limit/downgrade, deny growth; do not infer host capacity from Docker virtual df. New version policies are additive and do not expire imported history. Team sponsor personal+team data share the same plan quota; personal APIs must reject all group namespaces. Keep test-only PostgreSQL cloudbox_qa isolated.
+
+- Current layout: apps/portal only; main frontend build only. No legacy source/build/compatibility CLI remains. One-off quota restoration remains scripts/operations/one-off/restore-plan-quotas.py; never run as QA. See artifacts/qa/deadcode-cleanup-2026-11-10.md.
+
+- Current operating/development instructions: docs/operations/OPERATIONS.md and docs/development/DEVELOPMENT.md; rollback/refactor/design snapshots with history banners are not runnable current instructions. Dependency locking and a consolidated pre-deploy command are proposed only, not implemented.

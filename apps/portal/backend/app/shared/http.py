@@ -51,6 +51,8 @@ def flash(request: Request, message: str, kind: str = "info") -> None:
 
 def render(request: Request, name: str, user: User | None = None, status_code: int = 200, **ctx):
     from .frontend import assets, payload
+    from .csrf import ensure_token
+    ctx["csrf_token"] = ensure_token(request)
     flashes = request.session.pop("flash", [])
     ui_assets = assets()
     if ui_assets:

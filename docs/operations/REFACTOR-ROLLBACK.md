@@ -1,3 +1,5 @@
+> **Tài liệu lịch sử trước chuyển đổi native và xóa source ngày10/11/2026.** Các lệnh/đường dẫn ba dịch vụ bên dưới ghi nhận trạng thái cũ, không chạy trên dự án hiện hành. Xem [README](../../README.md) và [cây hiện hành](../architecture/PROJECT-STRUCTURE.md). Nội dung lịch sử được giữ nguyên bên dưới.
+
 # Khôi phục cấu trúc trước refactor
 
 Snapshot private: `.unified-backup/refactor-20261101/source.zip`; manifest SHA256 cùng thư mục. Đã xác nhận ZIP đọc được, lưu475tệp nguồn/cấu hình và git status/diff trước sửa. Snapshot chứa .env nên không chia sẻ/commit. Không chứa node_modules/dist/cache, .online, data volumes; đó không phải bản sao database.

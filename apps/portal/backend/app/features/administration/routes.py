@@ -1,27 +1,17 @@
-import re
-import secrets
-from fastapi import APIRouter, BackgroundTasks, Depends, Form, Request
-from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi import APIRouter, Depends, Form, Request
+from fastapi.responses import RedirectResponse
 from sqlalchemy import func
 from sqlalchemy.orm import Session
-from app.core.config import settings
 from app.core.database import get_db
 from app.core.models import Order, Plan, User
-from app.core.security import hash_password, make_verify_token, read_verify_token, verify_password
-from app.shared import mailer as emailer
-from app.shared.http import current_user, dt, flash, render, require_user, require_admin
-from app.features.storage import client as nextcloud
-from app.features.storage.client import NextcloudError
+from app.shared.http import flash, render, require_admin
 from app.features.billing import service as services
 from app.features.storage import service as storage_services
-from app.features.payments import service as payment_services
-from app.features.payments import vnpay
 
 router = APIRouter(prefix='/admin')
 
 def _back(url: str = "/admin/users"):
     return RedirectResponse(url, status_code=303)
-
 
 
 @router.get("")
@@ -38,7 +28,6 @@ def overview(request: Request, db: Session = Depends(get_db), admin: User = Depe
     return render(request, "admin_overview.html", admin, stats=stats, recent=recent)
 
 
-
 @router.get("/users")
 def users(request: Request, q: str = "", db: Session = Depends(get_db), admin: User = Depends(require_admin)):
     query = db.query(User).filter(User.role == "user")
@@ -50,7 +39,6 @@ def users(request: Request, q: str = "", db: Session = Depends(get_db), admin: U
                   plans=plans, q=q, month_choices=services.MONTH_CHOICES)
 
 
-
 @router.post("/users/{user_id}/toggle")
 def toggle_user(request: Request, user_id: int, db: Session = Depends(get_db), admin: User = Depends(require_admin)):
     user = db.get(User, user_id)
@@ -58,17 +46,10 @@ def toggle_user(request: Request, user_id: int, db: Session = Depends(get_db), a
         flash(request, "Không tìm thấy người dùng.", "error")
         return _back()
     new_state = not user.is_active
-    try:
-        if user.nc_username and user.is_verified:
-            (nextcloud.nc.enable_user if new_state else nextcloud.nc.disable_user)(user.nc_username)
-    except NextcloudError as exc:
-        flash(request, f"Không đổi được trạng thái trên Nextcloud: {exc}", "error")
-        return _back()
     user.is_active = new_state
     db.commit()
     flash(request, f"Đã {'mở khóa' if new_state else 'khóa'} {user.email}.", "ok")
     return _back()
-
 
 
 @router.post("/users/{user_id}/grant")
@@ -89,7 +70,6 @@ def grant_plan(request: Request, user_id: int, plan_code: str = Form(...), month
     return _back()
 
 
-
 @router.post("/users/{user_id}/sync")
 def sync_user(request: Request, user_id: int, db: Session = Depends(get_db), admin: User = Depends(require_admin)):
     user = db.get(User, user_id)
@@ -100,18 +80,15 @@ def sync_user(request: Request, user_id: int, db: Session = Depends(get_db), adm
     return _back()
 
 
-
 @router.get("/orders")
 def orders(request: Request, db: Session = Depends(get_db), admin: User = Depends(require_admin)):
     rows = db.query(Order).order_by(Order.id.desc()).limit(200).all()
     return render(request, "admin_orders.html", admin, orders=rows)
 
 
-
 @router.get("/plans")
 def plans(request: Request, db: Session = Depends(get_db), admin: User = Depends(require_admin)):
     return render(request, "admin_plans.html", admin, plans=db.query(Plan).order_by(Plan.sort).all())
-
 
 
 @router.post("/plans/{plan_id}")
@@ -133,7 +110,6 @@ def update_plan(request: Request, plan_id: int, name: str = Form(...), quota_gb:
         services.run_maintenance(db)
     flash(request, f"Đã cập nhật gói {plan.name}.", "ok")
     return _back("/admin/plans")
-
 
 
 @router.post("/maintenance")

@@ -1,10 +1,7 @@
 import logging
-from datetime import timedelta
 from sqlalchemy.orm import Session
 from app.core.config import settings
-from app.core.models import Order, Plan, User, utcnow
-from app.features.storage import client as nextcloud
-from app.features.storage.client import NextcloudError
+from app.core.models import Plan, User
 from app.core.security import hash_password
 
 log = logging.getLogger("portal.services")

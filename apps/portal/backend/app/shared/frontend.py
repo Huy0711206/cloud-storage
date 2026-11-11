@@ -21,7 +21,8 @@ def _dt(value):
 def plan(p):
     if p is None:
         return None
-    return {key: getattr(p, key) for key in ("id", "code", "name", "quota_gb", "price_vnd", "is_active", "sort")}
+    from app.features.billing.service import MONTH_CHOICES, calc_amount
+    return {**{key: getattr(p, key) for key in ("id", "code", "name", "quota_gb", "price_vnd", "is_active", "sort")}, "period_amounts": {str(months): calc_amount(p, months) for months in MONTH_CHOICES}}
 
 def user(u):
     if u is None:
@@ -44,7 +45,7 @@ def payload(name, current, ctx, flashes, nc_public_url):
     page = name.removesuffix(".html")
     admin = bool(current and current.role == "admin")
     return {
-        "page": page, "user": user(current),
+        "page": page, "user": user(current), "csrf_token": ctx.get("csrf_token", ""),
         "plans": [plan(p) for p in ctx.get("plans", [])],
         "orders": [order(o, admin) for o in ctx.get("orders", [])],
         "recent": [order(o, admin) for o in ctx.get("recent", [])],
@@ -53,7 +54,9 @@ def payload(name, current, ctx, flashes, nc_public_url):
         "q": ctx.get("q", ""), "form": ctx.get("form", {}),
         "error": ctx.get("error"), "unverified": ctx.get("unverified", False),
         "flashes": flashes, "usage": ctx.get("usage"),
-        "settings": {"nc_public_url": nc_public_url},
+        "settings": {"nc_public_url": "/dashboard#storage"},
+        "cooldown_seconds": ctx.get("cooldown_seconds", 0), "sent": ctx.get("sent", False),
+        "token": ctx.get("token", ""), "reset_token": ctx.get("reset_token", ""),
         "title": ctx.get("title", ""), "text": ctx.get("text", ""),
         "kind": ctx.get("kind", "info"), "link": ctx.get("link"),
     }

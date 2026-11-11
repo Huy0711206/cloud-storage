@@ -3,7 +3,6 @@ __pycache__/
 *.pyc
 .pytest_cache/
 *.db
-apps/portal/frontend/dist-mail/
 .online/
 
 # Local UI rollback snapshots and runtime data
@@ -11,5 +10,7 @@ apps/portal/frontend/dist-mail/
 .runtime/
 
 # Local output files and source-generation state
-apps/portal/frontend/dist-files/
 /cloudbox-don-hang.csv
+
+# AWS runtime secrets must remain outside source control
+infrastructure/aws/private/

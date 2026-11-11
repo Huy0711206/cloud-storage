@@ -14,7 +14,7 @@
       <a href="/#plans">Bảng giá</a>
       {% if user %}
         {% if user.role == 'admin' %}<a href="/admin">Quản trị</a>{% else %}<a href="/dashboard">Trang của tôi</a>{% endif %}
-        <form method="post" action="/logout" class="inline"><button class="link" type="submit">Đăng xuất</button></form>
+        <form method="post" action="/logout" class="inline"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="link" type="submit">Đăng xuất</button></form>
       {% else %}
         <a href="/login">Đăng nhập</a>
         <a class="btn small" href="/register">Đăng ký</a>

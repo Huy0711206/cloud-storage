@@ -22,13 +22,14 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
-import { cn } from "@/lib/utils"
 import { PublicPage } from "@/features/public/PublicPage"
 import { EmptyState, money, quota } from "@/shared/ui"
 import type { PageData, Plan } from "@/shared/types"
 import "@/styles/landing.css"
+import {usePlanBenefits,benefitsFor,planDescription,PlanFeatureList,PlanComparison,PlanCapacityNotice} from "@/features/billing/benefits"
 
 export function LandingPage({ data }: { data: PageData }) {
+  const {plans:benefits}=usePlanBenefits()
   // Preserve the existing native authentication forms and verification flows.
   if (data.page !== "home") {
     return (
@@ -77,7 +78,7 @@ export function LandingPage({ data }: { data: PageData }) {
       <section className="preview-public-capabilities" aria-labelledby="preview-tools-title">
         <h2 id="preview-tools-title" className="sr-only">Một không gian, những công cụ bạn cần</h2>
         <Capability icon={FolderOpen} title="Mọi tệp, gọn một nơi">
-          Tạo thư mục, tải lên và tìm lại tài liệu trong kho Nextcloud của bạn.
+          Tạo thư mục, tải lên và tìm lại tài liệu trong CloudBox của bạn.
         </Capability>
         <Capability icon={Link2} title="Chia sẻ theo cách của bạn">
           Gửi liên kết tệp hoặc thư mục để tiếp tục công việc cùng nhau.
@@ -91,7 +92,7 @@ export function LandingPage({ data }: { data: PageData }) {
         <div className="preview-public-section-heading">
           <div>
             <h2 id="preview-pricing-title">Chọn không gian vừa với bạn.</h2>
-            <p>Gói nhỏ để bắt đầu, dung lượng lớn hơn khi công việc phát triển.</p>
+            <p>Chọn dung lượng và công cụ phù hợp cho cách bạn làm việc.</p>
           </div>
           <Badge variant="outline">12 tháng, thanh toán 10 tháng</Badge>
         </div>
@@ -110,6 +111,7 @@ export function LandingPage({ data }: { data: PageData }) {
             <Button variant="outline" onClick={() => window.location.reload()}>Tải lại bảng giá</Button>
           </EmptyState>
         )}
+        <PlanCapacityNotice/><PlanComparison plans={data.plans} benefits={benefits}/>
         <p className="preview-public-pricing-note">
           Giá hiển thị theo tháng. Tạo tài khoản miễn phí trước khi nâng cấp gói.
         </p>
@@ -167,6 +169,8 @@ function Capability({ icon: Icon, title, children }: {
 }
 
 function PublicPlan({ plan, data }: { plan: Plan; data: PageData }) {
+  const {plans:benefits}=usePlanBenefits()
+  const benefit=benefitsFor(benefits,plan.code)
   const free = plan.price_vnd === 0
   const featured = plan.code === "standard"
   const active = data.user?.plan_id === plan.id
@@ -175,14 +179,14 @@ function PublicPlan({ plan, data }: { plan: Plan; data: PageData }) {
     : data.user.role === "admin" ? "/admin/plans" : "/dashboard#plans"
 
   return (
-    <Card className={cn("preview-public-plan", featured && "preview-public-plan-featured")}>
+    <Card className="preview-public-plan plan-border" data-featured={featured || undefined}>
       <CardHeader>
         <div className="preview-public-plan-heading">
           <CardTitle>{plan.name}</CardTitle>
-          {active ? <Badge variant="outline">Đang dùng</Badge> : featured ? <Badge>Đề xuất</Badge> : null}
+          <span className="flex flex-wrap gap-2">{active&&<Badge variant="outline">Đang dùng</Badge>}{featured&&<Badge>Đề xuất</Badge>}</span>
         </div>
         <CardDescription>
-          {free ? "Cho những tệp đầu tiên." : plan.quota_gb >= 1024 ? "Cho những dự án lớn hơn." : "Thêm chỗ cho công việc mỗi ngày."}
+          {planDescription(plan.code,benefit)}
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-1 flex-col gap-6">
@@ -192,16 +196,10 @@ function PublicPlan({ plan, data }: { plan: Plan; data: PageData }) {
           <span>{free ? "Không giới hạn thời gian" : "mỗi tháng"}</span>
         </div>
         <Separator />
-        <ul className="preview-public-plan-features">
-          {[
-            "Kho lưu trữ riêng",
-            "Chia sẻ tệp bằng liên kết",
-            "Đồng bộ nhiều thiết bị",
-          ].map((text) => <li key={text}><Check aria-hidden /><span>{text}</span></li>)}
-        </ul>
+        <PlanFeatureList code={plan.code} benefits={benefit}/>
       </CardContent>
       <CardFooter>
-        <Button variant={featured ? "default" : "outline"} className="w-full" asChild>
+        <Button variant="plan-outline" className="w-full" asChild>
           <a href={destination}>{data.user ? "Quản lý gói" : free ? "Bắt đầu miễn phí" : "Tạo tài khoản"}</a>
         </Button>
       </CardFooter>

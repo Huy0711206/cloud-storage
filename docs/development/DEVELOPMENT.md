@@ -1,53 +1,41 @@
-# Phát triển và kiểm thử
+# Phát triển và kiểm thử CloudBox
 
-Chạy từ root để dùng Compose/entrypoints. Frontend development tools nằm apps/portal/frontend; backend tools nằm apps/portal/backend. Không sửa source upstream Mailpit hoặc bộ font canonical rồi quên sync/build.
+Source hiện hành: apps/portal/frontend (React), apps/portal/backend (FastAPI app.main:app). Đăng ký/OTP tại authentication; tài khoản tại accounts; kho tại storage; gói/giá tại billing; callback/chữ ký/giao dịch tại payments; quản trị tại administration. Không còn source/build/test gateway hoặc Mailpit/Nextcloud.
 
 ## Frontend
 
+Từ root dự án:
+
 ```powershell
 Set-Location apps/portal/frontend
-pnpm install --frozen-lockfile
+pnpm install --frozen-lockfile --ignore-scripts
 pnpm check
 pnpm build
-pnpm test:mail
-# Chỉ kiểm tra build legacy, không mở cổng cũ:
-pnpm build:files
-pnpm exec vite build --config vite.mail.config.ts
 ```
 
-Giữ pnpm-lock.yaml và packageManager hiện hành. Không chạy update để xử lý lỗi đường dẫn. Windows pnpm có thể dùng junction tuyệt đối; khi di chuyển checkout, cài lại dependency tại vị trí mới và kiểm tra junction target, không xóa nguồn hoặc đổi lock để che lỗi.
+Giữ packageManager pnpm11.25.0 và pnpm-lock.yaml. Không pnpm update để chữa lỗi đường dẫn. node_modules là output cài đặt: nếu đã di chuyển checkout, kiểm junction/virtualStoreDir và cài lại đúng frozen lockfile tại vị trí mới, không sửa thủ công metadata để che lỗi. Trong môi trường kiểm thử không tương tác, đặt CI=true chỉ cho tiến trình cài đặt. Không vô hiệu hóa kiểm tra supply-chain; offline có thể thiếu metadata dù artifact đã cache. Không pin/nâng/hạ dependency trong đợt kiểm cấu trúc.
+
+Vite dùng src/main.tsx, dist/.vite/manifest.json và /static/ui/. Frontend .gitignore giữ node_modules/dist/tsbuildinfo ngoài Git. Token/font ở packages/design-system; scripts/sync-design.py chuyển tới maintenance/sync-design.py và CHỈ sinh tài nguyên CloudBox, đây là tác vụ ghi source có chủ đích, không phải lệnh test.
 
 ## Backend
 
-requirements.txt nằm apps/portal/backend. Package vẫn là app, chạy từ backend bằng `uvicorn app.main:app`. Biến cấu hình phải được thiết lập theo môi trường, không đưa secret vào source. Test_flow thiết lập SQLite tạm trước import app, thay Nextcloud bằng FakeNC và email bằng bộ ghi giả.
+Từ root, trong môi trường QA đã cài requirements và pytest:
 
 ```powershell
 Set-Location apps/portal/backend
 python -m pytest -q
 ```
 
-Cần môi trường đã cài runtime requirements và pytest; pytest là dependency kiểm thử, không thêm vào runtime chỉ để thuận tiện. Lệnh container cô lập thực tế nằm [backend test report](../../artifacts/qa/refactor-backend-tests.json): network none, nguồn read-only và tmpfs /tmp. Không dùng database portal thật để chạy test.
-
-## Kiểm chứng nguồn sau di chuyển
-
-Từ root:
+Mặc định dùng SQLite/tệp/SMTP/thanh toán giả; PostgreSQL-only tests bỏ qua nếu chưa cung cấp TEST_POSTGRES_URL. Concurrency chỉ chạy trên DB dùng một lần có tên cloudbox_qa; không dùng .env/DATABASE_URL production làm test URL:
 
 ```powershell
-python scripts/maintenance/verify-backend-refactor.py
-python scripts/maintenance/verify-frontend-refactor.py
-node --test apps/nextcloud/patches/viewer-close/viewer-close.test.mjs
-python scripts/maintenance/sync-design.py
-python scripts/diagnostics/verify-ui.py
+python -m pytest -q tests/test_native_postgres.py tests/test_storage_lifecycle_postgres.py
 ```
 
-Hai source checker chỉ phục vụ đối chiếu đợt refactor với snapshot gốc. Chúng cố ý phát hiện source đổi sau review; khi thêm nghiệp vụ mới phải review/chuyển baseline có giải thích, không sửa hash để ép pass. Chúng không thay thế tests/runtime QA.
+Lệnh thứ hai cần TEST_POSTGRES_URL trỏ DB QA đã chuẩn bị riêng. Không gửi SMTP/Gmail hoặc chạy payment/migration thật để kiểm thử cấu trúc. pytest là dependency QA, không thêm runtime chỉ để chạy test. Python requirements hiện dùng khoảng phiên bản; kế hoạch khóa dependency dựa trên runtime đã kiểm chứng là bước tiếp theo, chưa làm ở đây.
 
-## Chỉnh theo nghiệp vụ
+## Quy trình hiện hành
 
-- Đăng ký/login: frontend features/authentication và backend features/authentication.
-- Gói/đơn hàng: features/billing; callback/chữ ký/idempotency: features/payments.
-- Kho/quota: features/storage và Nextcloud native.
-- Mail gửi từ shared/mailer; không thêm provider/email ngoài để thử.
-- Giao diện dùng token ở packages/design-system, sync rồi build ứng dụng.
+Sau thay đổi: chạy kiểm tra liên quan; typecheck/build nếu chạm frontend; QA riêng nếu chạm backend. Đối chiếu mount/dữ liệu và chỉ cập nhật Portal nếu runtime đổi. Build không đồng nghĩa đã deploy. Tài liệu khôi phục ba dịch vụ và verifier cũ là lịch sử, không chạy theo.
 
-Không sửa JSX, giá, quyền hoặc route chỉ vì đổi thư mục. Các cảnh báo dynamic import không tách chunk và TestClient/httpx deprecation được ghi nhận riêng; chưa nâng dependency để loại cảnh báo.
+Xem [vận hành](../operations/OPERATIONS.md), [cấu trúc](../architecture/PROJECT-STRUCTURE.md), [kiểm chứng nguồn](../../artifacts/qa/deadcode-cleanup-2026-11-10.md).

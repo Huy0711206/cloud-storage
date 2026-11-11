@@ -13,7 +13,7 @@
   <div class="card stat"><div class="n">{{ stats.unsynced }}</div><div>Quota chờ đồng bộ</div></div>
 </section>
 
-<form method="post" action="/admin/maintenance" class="inline-form">
+<form method="post" action="/admin/maintenance" class="inline-form"><input type="hidden" name="csrf_token" value="{{ csrf_token }}">
   <button class="btn ghost small" type="submit">Chạy bảo trì ngay (hạ gói hết hạn, đồng bộ quota)</button>
 </form>
 

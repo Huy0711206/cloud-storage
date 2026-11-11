@@ -10,7 +10,7 @@
   <tbody>
   {% for p in plans %}
     <tr>
-      <form method="post" action="/admin/plans/{{ p.id }}">
+      <form method="post" action="/admin/plans/{{ p.id }}"><input type="hidden" name="csrf_token" value="{{ csrf_token }}">
         <td>{{ p.code }}</td>
         <td><input name="name" value="{{ p.name }}" required></td>
         <td><input type="number" name="quota_gb" value="{{ p.quota_gb }}" min="1" required></td>

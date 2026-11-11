@@ -1,30 +1,16 @@
-# Vận hành CloudBox
+# Vận hành CloudBox hiện hành
 
-Ba cổng web:8000 portal,8080 Nextcloud,8025 Mailpit loopback. DB/Redis/SMTP nội bộ; không mở8001/8081/8026.
+Production từ 10/11/2026 nằm trên EC2 AWS Academy `cloudbox-app-01`, không còn phục vụ từ Docker Desktop laptop. Tên miền duy nhất vẫn là https://cloudbox.rachiba.top.
 
-## Khởi chạy và build
+- [Mở web hằng ngày và phân biệt Docker laptop/EC2](../../README.md).
+- [AWS Academy: SSH, xử lý lỗi, triển khai từng bước và private config](AWS-ACADEMY.md).
+- [Báo cáo chuyển dữ liệu và kiểm chứng](../../artifacts/qa/aws-deployment-2026-11-10.md).
+- [Phát triển và kiểm thử local bằng dữ liệu riêng](../development/DEVELOPMENT.md).
 
-Từ root: `.\start-local.cmd` hoặc `.\start-local.ps1 -NoBrowser`. Build lại cả portal/Mail bằng `-Rebuild`, chỉ Mail bằng `-RebuildMail`. Compose vẫn ở root; giữ tên service và volume. Sau build phải chạy start-local để recreate image mới, không nhầm build thành deploy.
+Trên EC2, thư mục `/opt/cloudbox` có `compose.aws.yml` và `compose.tunnel.yml`; chạy cả hai để quản lý db/portal/tunnel. Source tương ứng ở `infrastructure/aws/`; cấu hình bí mật chỉ có trên EC2 trong `private/`.
 
-## Trạng thái online cuối đợt
+Portal laptop đã dừng. Root start-local.ps1/.cmd và Compose Windows là công cụ local, không triển khai AWS. Không khởi động lại trên dữ liệu nguồn để tạo thêm production. Sau khi AWS nhận ghi mới, quay lại laptop đòi hỏi chuyển dữ liệu hiện tại từ AWS và kiểm chứng trước đổi DNS.
 
-**Người dùng đã chọn giữ tunnel tắt, hoàn tất kiểm local.** Docker bị dừng khi công việc gián đoạn; đã bật Docker lại và chạy stop-online để khôi phục Nextcloud/portal về local. Không tạo tunnel/domain mới. Trạng thái cũ được lưu .online/last-session.json và last-compose.json, không hardcode URL tạm cũ vào source.
+Giữ nguyên .env/.online/.runtime/.unified-backup/CSV, database/volumes và dữ liệu Nextcloud nguồn. Không down -v, remove-orphans, prune volume, Reset lab hoặc tạo volume rỗng thay dữ liệu hiện có. Không đổi mật khẩu DB chỉ bằng sửa env; không gửi toàn bộ config/log cho người khác.
 
-`python online.py status` báo không có active saved session. Chỉ bật lại bằng start-online khi người dùng cần; Quick Tunnel có thể đổi URL. Khi online, start-local giữ HTTPS override và cần dùng URL HTTPS để login portal. Khi dừng online, script nay archive compose.json thành last-compose.json để lần chạy local không nhầm override cũ là phiên còn hoạt động. Đây là sửa thao tác trạng thái có kiểm thử dữ liệu giả, không đổi nghiệp vụ.
-
-## Kiểm tra / log
-
-```powershell
-docker compose config --quiet
-docker compose ps
-python scripts/verify-ui.py
-python scripts/patch-viewer.py
-```
-
-Log trực tiếp dùng docker compose logs --tail; không chia sẻ nguyên log/config chứa secret. .env/.online/.unified-backup/.runtime bị ignore. Giữ máy bật và Docker chạy; Mailpit dùng volume persistent cloud-storage_mailpit_data. Không down -v.
-
-## Khôi phục
-
-[Rollback UI](ROLLBACK-UI.md) chỉ chuyển image/theme, giữ ports/data. Viewer riêng: `python scripts/patch-viewer.py --restore` trả signed app về gốc nhưng lỗi legacy có thể quay lại. Chữ ký app hiện tại báo đúng loader/hash module của bản vá; không tắt integrity.
-
-[Rollback cấu trúc](REFACTOR-ROLLBACK.md) dùng source ZIP trước refactor, không restore DB hay trạng thái online cũ. Dockerfiles/source legacy là tư liệu/build test; không thêm service Compose để mở cổng đã ngừng.
+AWS Academy có phiên lab/ngân sách/ngày kết thúc; không bảo đảm hosting 24/7 dài hạn. Không cài cơ chế tự gia hạn lab hoặc thay tự khởi động Windows. Chưa thiết lập backup dài hạn.

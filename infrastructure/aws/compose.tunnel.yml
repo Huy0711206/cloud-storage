@@ -1,0 +1,13 @@
+services:
+  tunnel:
+    image: cloudflare/cloudflared:2026.10.7
+    user: '1000:1000'
+    network_mode: host
+    restart: unless-stopped
+    command: [tunnel, --no-autoupdate, --metrics, '127.0.0.1:20241', run, --token-file, /run/secrets/tunnel_token]
+    volumes:
+      - ./private/tunnel-token:/run/secrets/tunnel_token:ro
+    logging:
+      options:
+        max-size: 10m
+        max-file: '3'

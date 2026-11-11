@@ -7,6 +7,7 @@ import "@/styles/overview.css"
 import "@/styles/landing.css"
 import "@/styles/generated.css"
 import "@/styles/unified.css"
+import "@/styles/native-files.css"
 
 // Reuse the proven full page renderers; all routes/forms remain server-backed.
 document.documentElement.dataset.ui = "preview"

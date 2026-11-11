@@ -1,16 +1,15 @@
-import {useState} from "react"
-import {ArrowUpRight, Check, Copy, FolderOpen, HardDrive, Info, KeyRound, RefreshCw, ShieldCheck, AlertCircle} from "lucide-react"
+import {FolderOpen, HardDrive, Info, RefreshCw, ShieldCheck, AlertCircle} from "lucide-react"
 import {Button} from "@/components/ui/button"
 import {Badge} from "@/components/ui/badge"
 import {Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter} from "@/components/ui/card"
 import {Alert, AlertTitle, AlertDescription} from "@/components/ui/alert"
 import {Separator} from "@/components/ui/separator"
-import {PageHeading, bytes, quota} from "@/shared/ui"
+import {bytes, quota} from "@/shared/ui"
 import type {PageData} from "@/shared/types"
 import {cn} from "@/lib/utils"
 
 
-export function StorageButton({data}:{data:PageData}) { return <Button asChild><a href={data.settings.nc_public_url} target="_blank" rel="noopener noreferrer"><FolderOpen data-icon="inline-start" aria-hidden/>Mở kho lưu trữ<ArrowUpRight data-icon="inline-end" aria-hidden/><span className="sr-only"> (mở tab mới)</span></a></Button> }
+export function StorageButton({data:_data}:{data:PageData}) { return <Button asChild><a href={_data.user?.role==="admin"?"/files#storage":"/dashboard#storage"}><FolderOpen data-icon="inline-start" aria-hidden/>Mở kho lưu trữ</a></Button> }
 
 export function UsageCard({data}:{data:PageData}) {
  const usage=data.usage
@@ -19,8 +18,4 @@ export function UsageCard({data}:{data:PageData}) {
   {usage&&usage.percent>=90&&<Alert data-tone="warning"><Info aria-hidden/><AlertTitle>Kho lưu trữ sắp đầy</AlertTitle><AlertDescription>Xóa tệp không cần thiết hoặc nâng cấp gói để có thêm dung lượng.</AlertDescription></Alert>}
  </CardContent><CardFooter className="justify-between gap-4"><span className="flex items-center gap-2 text-xs text-muted-foreground"><ShieldCheck className="size-4" aria-hidden/>Kho riêng cho tài khoản của bạn</span><Button variant="ghost" size="sm" onClick={()=>window.location.reload()} aria-label="Cập nhật dung lượng"><RefreshCw data-icon="inline-start" aria-hidden/>Cập nhật</Button></CardFooter></Card>
 }
-export function StoragePage({data}:{data:PageData}) {
- const [copied,setCopied]=useState(false),[copyError,setCopyError]=useState(false)
- return <div className="flex min-w-0 flex-col gap-7"><PageHeading title="Kho lưu trữ" description="Mở, quản lý và chia sẻ các tệp của bạn." action={<StorageButton data={data}/>}/><div className="dashboard-grid"><UsageCard data={data}/><Card><CardHeader><CardTitle>Truy cập kho của bạn</CardTitle><CardDescription>Dùng email và cùng mật khẩu với CloudBox.</CardDescription></CardHeader><CardContent className="flex flex-col gap-5"><div className="email-surface"><span>Email đăng nhập</span><strong>{data.user!.email}</strong><Button variant="outline" size="sm" onClick={async()=>{try{await navigator.clipboard.writeText(data.user!.email);setCopied(true);setCopyError(false)}catch{setCopyError(true)}}}>{copied?<Check data-icon="inline-start" aria-hidden/>:<Copy data-icon="inline-start" aria-hidden/>}{copied?"Đã sao chép":"Sao chép email"}</Button><span className="sr-only" role="status">{copied?"Đã sao chép email":""}</span>{copyError&&<p role="alert" className="form-error">Hãy chọn và sao chép email ở trên.</p>}</div><p className="text-sm leading-relaxed text-muted-foreground">Kho mở trong tab mới. Tại đó, bạn có thể tạo thư mục, tải tệp lên và chia sẻ liên kết.</p><Separator/><Button variant="ghost" asChild><a href="#settings"><KeyRound data-icon="inline-start" aria-hidden/>Quản lý mật khẩu</a></Button></CardContent></Card></div><Card><CardHeader><CardTitle>Làm việc với tệp</CardTitle><CardDescription>Các thao tác thực hiện trực tiếp trong kho lưu trữ.</CardDescription></CardHeader><CardContent className="storage-features">{[{icon:FolderOpen,title:"Sắp xếp gọn gàng",text:"Tạo thư mục và quản lý tệp theo cách của bạn."},{icon:ArrowUpRight,title:"Chia sẻ dễ dàng",text:"Tạo liên kết chia sẻ cho tệp hoặc thư mục."},{icon:RefreshCw,title:"Đồng bộ thiết bị",text:"Sử dụng ứng dụng máy tính hoặc điện thoại để truy cập tệp."}].map(({icon:Icon,title,text})=><div key={title}><Icon aria-hidden/><h2>{title}</h2><p>{text}</p></div>)}</CardContent></Card></div>
-}
-
+export { NativeFilesPage as StoragePage } from "./NativeFilesPage"

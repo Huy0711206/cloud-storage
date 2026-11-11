@@ -1,4 +1,4 @@
-# Hệ thống Cloud Data Storage: Nextcloud (lưu trữ) + Portal (đăng ký / billing / thanh toán)
+# CloudBox native: application + persistent PostgreSQL and file storage
 # Chạy:  docker compose up -d --build
 services:
   db:
@@ -17,68 +17,12 @@ services:
       timeout: 5s
       retries: 20
 
-  redis:
-    image: redis:7-alpine
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
-      retries: 20
-
-  nextcloud:
-    image: nextcloud@sha256:e0b1a2af52c82c07b7a0e8e59878bd8769e704447734d5d238a836982f51b9c8 # 35.0.2, existing image
-    restart: unless-stopped
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    ports:
-      - "8080:80"
-    environment:
-      POSTGRES_HOST: db
-      POSTGRES_DB: nextcloud
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      NEXTCLOUD_ADMIN_USER: ${NEXTCLOUD_ADMIN_USER}
-      NEXTCLOUD_ADMIN_PASSWORD: ${NEXTCLOUD_ADMIN_PASSWORD}
-      # "nextcloud" là tên mà portal dùng để gọi API trong mạng Docker
-      NEXTCLOUD_TRUSTED_DOMAINS: "localhost nextcloud ${EXTRA_TRUSTED_DOMAINS:-}"
-      REDIS_HOST: redis
-      PHP_UPLOAD_LIMIT: 2G
-      PHP_MEMORY_LIMIT: 512M
-    healthcheck:
-      test: ["CMD", "php", "-r", "exit((json_decode(@file_get_contents('http://127.0.0.1/status.php'), true)['installed'] ?? false) ? 0 : 1);"]
-      interval: 5s
-      timeout: 5s
-      start_period: 30s
-      retries: 30
-    volumes:
-      - nextcloud_data:/var/www/html
-      - ./apps/nextcloud/cloudbox_theme:/var/www/html/custom_apps/cloudbox_theme:ro
-
-  mailpit:
-    # Complete native Mailpit v1.32.0 with CloudBox styling; SMTP stays internal.
-    image: cloud-storage-mailpit-unified:1.32.0
-    build: ./apps/mail
-    restart: unless-stopped
-    ports:
-      - "127.0.0.1:8025:8025"
-    environment:
-      MP_DATABASE: /data/mailpit.db
-    volumes:
-      - mailpit_data:/data
-
   portal:
+    image: cloud-storage-portal:native
     build: ./apps/portal
     restart: unless-stopped
     depends_on:
       db:
-        condition: service_healthy
-      nextcloud:
-        condition: service_healthy
-      mailpit:
         condition: service_healthy
     ports:
       - "127.0.0.1:8000:8000"  # cổng chính trên laptop
@@ -92,10 +36,6 @@ services:
       DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/portal
       SECRET_KEY: ${SECRET_KEY}
       BASE_URL: ${BASE_URL:-http://localhost:8000}
-      NEXTCLOUD_URL: http://nextcloud
-      NEXTCLOUD_PUBLIC_URL: ${NEXTCLOUD_PUBLIC_URL}
-      NEXTCLOUD_ADMIN_USER: ${NEXTCLOUD_ADMIN_USER}
-      NEXTCLOUD_ADMIN_PASSWORD: ${NEXTCLOUD_ADMIN_PASSWORD}
       ADMIN_EMAIL: ${ADMIN_EMAIL}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD}
       SMTP_HOST: ${SMTP_HOST}
@@ -104,12 +44,20 @@ services:
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
       SMTP_STARTTLS: ${SMTP_STARTTLS:-false}
       MAIL_FROM: ${MAIL_FROM}
+      MAIL_DELIVERY_MODE: production
+      STORAGE_ROOT: /data/cloudbox
+      STORAGE_POOL_LIMIT_BYTES: ${STORAGE_POOL_LIMIT_BYTES:-21474836480}
       VNPAY_TMN_CODE: ${VNPAY_TMN_CODE:-}
       VNPAY_HASH_SECRET: ${VNPAY_HASH_SECRET:-}
       VNPAY_PAY_URL: ${VNPAY_PAY_URL}
+    volumes:
+      - cloudbox_data:/data/cloudbox
 
 
 volumes:
+  cloudbox_data:
+    external: true
+    name: cloud-storage_cloudbox_data
   db_data:
   nextcloud_data:
   mailpit_data:

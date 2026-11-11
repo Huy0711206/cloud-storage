@@ -1,9 +1,0 @@
-# Not within the scope of Prettier
-**/*.yml
-**/*.yaml
-**/*.json
-**/*.md
-**/*.css
-**/*.html
-**/*.scss
-composer.lock

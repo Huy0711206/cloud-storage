@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}Xác minh Gmail{% endblock %}
+{% block content %}<section class="narrow card"><h1>Xác minh Gmail</h1>
+<p>Nhập mã 6 số được gửi tới {{ form.email }}.</p>
+{% if error %}<p role="alert">{{ error }}</p>{% endif %}
+{% if sent %}<p role="status">Máy chủ email đã chấp nhận thư. Hãy kiểm tra Gmail và thư mục spam.</p>{% endif %}
+<form action="/verify" method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><label>Mã xác minh<input name="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required></label><button type="submit">Xác minh</button></form>
+<form action="/resend" method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button type="submit">Gửi lại mã</button><small>Chờ ít nhất 60 giây giữa các lần gửi.</small></form>
+<a href="/register">Quay lại đăng ký</a></section>{% endblock %}

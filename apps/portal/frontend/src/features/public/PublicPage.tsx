@@ -3,20 +3,24 @@ import {ArrowRight, Check, Cloud, Folder, HardDrive, Link2} from "lucide-react"
 import {Badge} from "@/components/ui/badge"
 import {Button} from "@/components/ui/button"
 import {Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle} from "@/components/ui/card"
-import {cn} from "@/lib/utils"
 import {Notice, money, quota} from "@/shared/ui"
 import type {PageData, Plan} from "@/shared/types"
 
-import { LoginPage, RegisterPage, MessagePage } from "@/features/authentication/AuthPages"
+import { LoginPage, RegisterPage, MessagePage, VerifyPage, ForgotPasswordPage, ResetPasswordPage } from "@/features/authentication/AuthPages"
+import {usePlanBenefits,benefitsFor,planDescription,PlanFeatureList,PlanComparison,PlanCapacityNotice} from "@/features/billing/benefits"
 import { StorageIllustration } from "@/shared/StorageIllustration"
 export function PublicPage({ data }: { data: PageData }) {
   if (data.page === "login") return <LoginPage data={data} />
   if (data.page === "register") return <RegisterPage data={data} />
+  if (data.page === "verify") return <VerifyPage data={data} />
+  if (data.page === "forgot") return <ForgotPasswordPage data={data} />
+  if (data.page === "reset") return <ResetPasswordPage data={data} />
   if (data.page === "message") return <MessagePage data={data} />
   return <HomePage data={data} />
 }
 
 function HomePage({ data }: { data: PageData }) {
+  const {plans:benefits}=usePlanBenefits()
   const freePlan = data.plans.find((plan) => plan.price_vnd === 0)
   const workspaceUrl = data.user?.role === "admin" ? "/admin" : "/dashboard"
 
@@ -26,7 +30,7 @@ function HomePage({ data }: { data: PageData }) {
         <div className="public-hero-copy">
           <Badge variant="outline"><Cloud data-icon="inline-start" aria-hidden />Không gian lưu trữ của bạn</Badge>
           <h1 id="hero-title">Mọi tệp của bạn.<br /><span>Một nơi gọn gàng.</span></h1>
-          <p>Lưu trữ, đồng bộ và chia sẻ tệp với CloudBox. Quản lý dung lượng và gói dịch vụ trong một không gian đơn giản, rõ ràng.</p>
+          <p>Lưu trữ, truy cập và chia sẻ tệp với CloudBox. Quản lý dung lượng và gói dịch vụ trong một không gian đơn giản, rõ ràng.</p>
           <div className="flex flex-wrap items-center gap-3">
             <Button size="lg" asChild>
               <a href={data.user ? workspaceUrl : "/register"}>
@@ -44,11 +48,11 @@ function HomePage({ data }: { data: PageData }) {
       <section className="public-features" aria-label="Tính năng CloudBox">
         <div className="public-feature">
           <div className="feature-icon"><Folder aria-hidden /></div>
-          <div><h2>Tệp được sắp xếp</h2><p>Tải lên, tải xuống và quản lý thư mục trong kho lưu trữ Nextcloud của bạn.</p></div>
+          <div><h2>Tệp được sắp xếp</h2><p>Tải lên, tải xuống và quản lý thư mục trong CloudBox của bạn.</p></div>
         </div>
         <div className="public-feature">
           <div className="feature-icon"><Link2 aria-hidden /></div>
-          <div><h2>Chia sẻ thuận tiện</h2><p>Đồng bộ giữa các thiết bị và chia sẻ tệp bằng liên kết.</p></div>
+          <div><h2>Chia sẻ thuận tiện</h2><p>Truy cập trên nhiều thiết bị và chia sẻ tệp bằng liên kết.</p></div>
         </div>
         <div className="public-feature">
           <div className="feature-icon"><HardDrive aria-hidden /></div>
@@ -69,6 +73,7 @@ function HomePage({ data }: { data: PageData }) {
         ) : (
           <Notice title="Chưa có gói dịch vụ">Bảng giá hiện chưa được cập nhật. Vui lòng quay lại sau.</Notice>
         )}
+        <PlanCapacityNotice/><PlanComparison plans={data.plans} benefits={benefits}/>
         <p className="pricing-footnote">Mua 12 tháng, thanh toán 10 tháng. Đăng ký tài khoản miễn phí trước khi nâng cấp.</p>
       </section>
 
@@ -82,6 +87,8 @@ function HomePage({ data }: { data: PageData }) {
 }
 
 function PricingCard({ plan, data }: { plan: Plan; data: PageData }) {
+  const {plans:benefits}=usePlanBenefits()
+  const benefit=benefitsFor(benefits,plan.code)
   const isFree = plan.price_vnd === 0
   const featured = plan.code === "standard"
   const currentPlan = data.user?.plan_id === plan.id
@@ -89,26 +96,22 @@ function PricingCard({ plan, data }: { plan: Plan; data: PageData }) {
   const label = !data.user ? isFree ? "Bắt đầu miễn phí" : "Tạo tài khoản" : currentPlan || data.user.role === "admin" ? "Quản lý gói" : "Xem gói dịch vụ"
 
   return (
-    <Card className={cn("plan-card", featured && "plan-featured")}>
+    <Card className="plan-card plan-border" data-featured={featured || undefined}>
       <CardHeader>
         <div className="flex min-h-6 flex-wrap items-center justify-between gap-2">
           <CardTitle>{plan.name}</CardTitle>
-          {currentPlan ? <Badge variant="secondary">Gói hiện tại</Badge> : featured ? <Badge>Đề xuất</Badge> : null}
+          <span className="flex flex-wrap gap-2">{currentPlan&&<Badge variant="secondary">Gói hiện tại</Badge>}{featured&&<Badge>Đề xuất</Badge>}</span>
         </div>
-        <CardDescription>{isFree ? "Cho những tệp đầu tiên của bạn." : plan.quota_gb >= 1024 ? "Không gian cho nhiều dự án hơn." : plan.quota_gb >= 500 ? "Thoải mái cho nhu cầu mỗi ngày." : "Thêm chỗ cho tệp và tài liệu."}</CardDescription>
+        <CardDescription>{planDescription(plan.code,benefit)}</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-1 flex-col gap-6">
         <div>
           <p className="plan-capacity">{quota(plan.quota_gb)}</p>
           <p className="plan-price">{isFree ? "Miễn phí" : money(plan.price_vnd)}{!isFree && <span>/tháng</span>}</p>
         </div>
-        <ul className="flex flex-col gap-3 text-sm text-muted-foreground">
-          <li className="flex items-start gap-2"><Check className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />Kho lưu trữ riêng</li>
-          <li className="flex items-start gap-2"><Check className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />Đồng bộ tệp và thư mục</li>
-          <li className="flex items-start gap-2"><Check className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />Chia sẻ bằng liên kết</li>
-        </ul>
+        <PlanFeatureList code={plan.code} benefits={benefit}/>
       </CardContent>
-      <CardFooter><Button variant={featured ? "default" : "outline"} className="w-full" asChild><a href={destination}>{label}<ArrowRight data-icon="inline-end" aria-hidden /></a></Button></CardFooter>
+      <CardFooter><Button variant="plan-outline" className="w-full" asChild><a href={destination}>{label}<ArrowRight data-icon="inline-end" aria-hidden /></a></Button></CardFooter>
     </Card>
   )
 }

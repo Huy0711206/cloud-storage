@@ -2,10 +2,7 @@ import logging
 from datetime import timedelta
 from sqlalchemy.orm import Session
 from app.core.config import settings
-from app.core.models import Order, Plan, User, utcnow
-from app.features.storage import client as nextcloud
-from app.features.storage.client import NextcloudError
-from app.core.security import hash_password
+from app.core.models import Plan, User, utcnow
 
 log = logging.getLogger("portal.services")
 
@@ -13,8 +10,8 @@ from app.features.storage.service import sync_quota
 
 DEFAULT_PLANS = [
     ("free", "Miễn phí", 5, 0),
-    ("basic", "Cơ bản", 100, 25_000),
-    ("standard", "Tiêu chuẩn", 500, 69_000),
+    ("basic", "Cơ bản", 100, 39_000),
+    ("standard", "Tiêu chuẩn", 500, 89_000),
     ("premium", "Cao cấp", 2048, 199_000),
 ]
 
@@ -26,13 +23,12 @@ def calc_amount(plan: Plan, months: int) -> int:
     return plan.price_vnd * MONTH_CHOICES[months]
 
 
-
 def free_plan(db: Session) -> Plan:
     return db.query(Plan).filter(Plan.price_vnd == 0).order_by(Plan.sort).first()
 
 
-
-def activate_plan(db: Session, user: User, plan: Plan, months: int) -> None:
+def activate_plan(db: Session, user: User, plan: Plan, months: int, *, commit: bool = True) -> None:
+    user = db.query(User).filter_by(id=user.id).populate_existing().with_for_update().one()
     now = utcnow()
     if user.plan_id == plan.id and user.plan_expires_at and user.plan_expires_at > now:
         start = user.plan_expires_at  # gia hạn: cộng nối tiếp vào hạn cũ
@@ -40,10 +36,9 @@ def activate_plan(db: Session, user: User, plan: Plan, months: int) -> None:
         start = now
     user.plan_id = plan.id
     user.plan_expires_at = start + timedelta(days=settings.plan_days_per_month * months)
-    user.quota_synced = False
-    db.commit()
-    sync_quota(db, user)
-
+    user.quota_synced = True
+    if commit:
+        db.commit()
 
 
 def set_free(db: Session, user: User) -> None:
@@ -54,18 +49,17 @@ def set_free(db: Session, user: User) -> None:
     sync_quota(db, user)
 
 
-
 def run_maintenance(db: Session) -> int:
     """Hạ gói các tài khoản hết hạn về Miễn phí và thử đồng bộ lại quota bị lỗi trước đó."""
     now = utcnow()
-    expired = db.query(User).filter(User.plan_expires_at.is_not(None), User.plan_expires_at < now).all()
+    expired = db.query(User).filter(User.plan_expires_at.is_not(None), User.plan_expires_at < now).populate_existing().with_for_update(skip_locked=True).all()
     free = free_plan(db)
     for u in expired:
         u.plan_id = free.id
         u.plan_expires_at = None
         u.quota_synced = False
     db.commit()
-    pending = db.query(User).filter(User.quota_synced.is_(False), User.nc_username.is_not(None),
+    pending = db.query(User).filter(User.quota_synced.is_(False),
                                     User.is_verified.is_(True)).all()
     for u in pending:
         sync_quota(db, u)

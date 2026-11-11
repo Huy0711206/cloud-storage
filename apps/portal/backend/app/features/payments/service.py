@@ -1,11 +1,6 @@
 import logging
-from datetime import timedelta
 from sqlalchemy.orm import Session
-from app.core.config import settings
-from app.core.models import Order, Plan, User, utcnow
-from app.features.storage import client as nextcloud
-from app.features.storage.client import NextcloudError
-from app.core.security import hash_password
+from app.core.models import Order, User, utcnow
 
 log = logging.getLogger("portal.services")
 
@@ -42,7 +37,8 @@ def process_payment(db: Session, params: dict) -> tuple[str, str, Order | None, 
     order.status = "paid"
     order.paid_at = utcnow()
     order.gateway_txn_no = params.get("vnp_TransactionNo")
+    user = db.query(User).filter_by(id=order.user_id).populate_existing().with_for_update().one()
+    activate_plan(db, user, order.plan, order.months, commit=False)
     db.commit()
-    activate_plan(db, order.user, order.plan, order.months)
     return "00", "Confirm Success", order, True
 

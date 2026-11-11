@@ -26,8 +26,6 @@
   },
   "include": [
     "src",
-    "vite.config.ts",
-    "vite.mail.config.ts",
-    "vite.files.config.ts"
+    "vite.config.ts"
   ]
 }

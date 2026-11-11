@@ -1,0 +1,2 @@
+{% extends "base.html" %}{% block title %}Khôi phục tài khoản{% endblock %}
+{% block content %}<section class="narrow card"><h1>Khôi phục tài khoản</h1><p>Nhập email tài khoản CloudBox để nhận liên kết đặt lại mật khẩu.</p><form action="/forgot-password" method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><label>Email<input type="email" name="email" autocomplete="email" required></label><button type="submit">Yêu cầu khôi phục</button></form><a href="/login">Về đăng nhập</a></section>{% endblock %}

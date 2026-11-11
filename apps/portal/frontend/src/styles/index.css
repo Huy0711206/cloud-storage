@@ -43,3 +43,16 @@
 .validation-summary{padding:16px;border:1px solid var(--danger-border);border-radius:8px;background:var(--danger-bg);color:var(--destructive);font-size:12px}.validation-summary p{font-weight:600;margin-bottom:8px}.validation-summary ul{padding-left:18px;display:flex;flex-direction:column;gap:6px}.validation-summary a{text-decoration:underline}
 
 .order-filter-mobile{display:none}@media(max-width:767px){.order-filter-mobile{display:flex;max-width:none!important}.order-filter-desktop{display:none!important}}
+
+/* Highlight the recommended plan; hover outlines do not shift card layout. */
+.plan-border{outline:2px solid transparent;outline-offset:-1px;transition:border-color 180ms ease,outline-color 180ms ease}
+.plan-border[data-featured=true]{border-color:var(--primary);outline-color:var(--primary)}
+@media(hover:hover){.plan-border:not([data-featured=true]):hover{border-color:var(--primary);outline-color:var(--primary)}}
+@media(prefers-reduced-motion:reduce){.plan-border{transition:none}}
+
+/* Shared, server-described plan benefits. */
+.plan-benefit-list{display:flex;flex-direction:column;gap:12px;list-style:none;padding:0;margin:0;font-size:13px;line-height:1.7;color:var(--muted-foreground)}
+.plan-benefit-list li{display:flex;align-items:flex-start;gap:10px}.plan-benefit-list svg{width:16px;height:16px;flex-shrink:0;margin-top:3px;color:var(--primary)}
+.plan-comparison{min-width:0;display:flex;flex-direction:column;gap:16px;margin-top:28px;border:1px solid var(--border);border-radius:12px;background:var(--card);padding:24px}
+.plan-comparison h3{font-size:18px;font-weight:600}.plan-comparison>p{font-size:13px;line-height:1.8;color:var(--muted-foreground)}.plan-comparison [data-slot=table-head]{white-space:normal}.plan-comparison [data-slot=table-cell]{white-space:normal;min-width:110px}.plan-comparison [data-slot=table-cell]:first-child{min-width:170px}
+@media(max-width:640px){.plan-comparison{padding:16px;margin-top:20px}.plan-comparison [data-slot=table-head],.plan-comparison [data-slot=table-cell]{font-size:12px}}

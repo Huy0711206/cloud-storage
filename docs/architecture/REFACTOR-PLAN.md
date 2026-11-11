@@ -1,3 +1,5 @@
+> **Tài liệu lịch sử trước chuyển đổi native và xóa source ngày10/11/2026.** Các lệnh/đường dẫn ba dịch vụ bên dưới ghi nhận trạng thái cũ, không chạy trên dự án hiện hành. Xem [README](../../README.md) và [cây hiện hành](../architecture/PROJECT-STRUCTURE.md). Nội dung lịch sử được giữ nguyên bên dưới.
+
 # Kế hoạch tái cấu trúc CloudBox — 01/11/2026
 
 Đã trình bày trước khi thay đổi mã. Mục tiêu giữ hành vi/dữ liệu/ba cổng, không nâng dependency. Root Compose giữ project identity cloud-storage; trạng thái .online/.unified-backup và CSV nghiệp vụ giữ tại chỗ. Source và cả thay đổi chưa commit được snapshot private tại .unified-backup/refactor-20261101; snapshot có .env, không chia sẻ/commit.

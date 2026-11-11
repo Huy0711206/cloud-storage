@@ -4,7 +4,7 @@
 <div class="narrow card">
   <h2>Tạo tài khoản</h2>
   {% if error %}<div class="alert error">{{ error }}</div>{% endif %}
-  <form method="post" action="/register" class="form">
+  <form method="post" action="/register" class="form"><input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     <label>Họ và tên
       <input name="full_name" value="{{ form.get('full_name', '') }}" required maxlength="120" autocomplete="name">
     </label>

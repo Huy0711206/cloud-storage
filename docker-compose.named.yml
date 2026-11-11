@@ -1,0 +1,6 @@
+# Single CloudBox public domain; existing Windows cloudflared service stays unchanged.
+services:
+  portal:
+    environment:
+      BASE_URL: https://cloudbox.rachiba.top
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--forwarded-allow-ips", "*", "--no-access-log"]

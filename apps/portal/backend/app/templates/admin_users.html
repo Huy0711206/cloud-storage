@@ -23,13 +23,13 @@
         {% else %}<span class="tag failed">Bị khóa</span>{% endif %}
       </td>
       <td class="actions-cell">
-        <form method="post" action="/admin/users/{{ u.id }}/toggle"><button class="btn tiny ghost" type="submit">{{ 'Khóa' if u.is_active else 'Mở khóa' }}</button></form>
-        <form method="post" action="/admin/users/{{ u.id }}/grant" class="grant">
+        <form method="post" action="/admin/users/{{ u.id }}/toggle"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="btn tiny ghost" type="submit">{{ 'Khóa' if u.is_active else 'Mở khóa' }}</button></form>
+        <form method="post" action="/admin/users/{{ u.id }}/grant" class="grant"><input type="hidden" name="csrf_token" value="{{ csrf_token }}">
           <select name="plan_code">{% for p in plans %}<option value="{{ p.code }}" {{ 'selected' if u.plan_id == p.id }}>{{ p.name }}</option>{% endfor %}</select>
           <select name="months">{% for m in month_choices %}<option value="{{ m }}">{{ m }} th</option>{% endfor %}</select>
           <button class="btn tiny" type="submit">Cấp gói</button>
         </form>
-        {% if not u.quota_synced %}<form method="post" action="/admin/users/{{ u.id }}/sync"><button class="btn tiny ghost" type="submit">Đồng bộ quota</button></form>{% endif %}
+        {% if not u.quota_synced %}<form method="post" action="/admin/users/{{ u.id }}/sync"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="btn tiny ghost" type="submit">Đồng bộ quota</button></form>{% endif %}
       </td>
     </tr>
   {% else %}<tr><td colspan="6" class="muted">Không có người dùng.</td></tr>

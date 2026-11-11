@@ -22,7 +22,7 @@
     {% if not user.quota_synced %}<div class="alert error">Quota đang được đồng bộ lại với kho lưu trữ, vui lòng chờ ít phút.</div>{% endif %}
     <details>
       <summary>Đổi mật khẩu</summary>
-      <form method="post" action="/account/password" class="form">
+      <form method="post" action="/account/password" class="form"><input type="hidden" name="csrf_token" value="{{ csrf_token }}">
         <input type="password" name="current" placeholder="Mật khẩu hiện tại" required autocomplete="current-password">
         <input type="password" name="new" placeholder="Mật khẩu mới (≥ 10 ký tự, chữ và số)" required minlength="10" autocomplete="new-password">
         <input type="password" name="new2" placeholder="Nhập lại mật khẩu mới" required minlength="10" autocomplete="new-password">
@@ -36,7 +36,7 @@
   <h2>Nâng cấp / gia hạn</h2>
   <div class="grid plans">
     {% for p in plans if p.price_vnd > 0 %}
-    <form class="card plan {{ 'featured' if p.code == 'standard' }}" method="post" action="/billing/checkout">
+    <form class="card plan {{ 'featured' if p.code == 'standard' }}" method="post" action="/billing/checkout"><input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <h3>{{ p.name }}</h3>
       <div class="size">{{ p.quota_gb|quota }}</div>
       <div class="price">{{ p.price_vnd|vnd }}<small>/tháng</small></div>

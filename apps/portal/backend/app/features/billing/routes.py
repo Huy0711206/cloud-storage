@@ -1,20 +1,13 @@
 import re
 import secrets
-from fastapi import APIRouter, BackgroundTasks, Depends, Form, Request
-from fastapi.responses import JSONResponse, RedirectResponse
-from sqlalchemy import func
+from fastapi import APIRouter, Depends, Form, Request
+from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.core.database import get_db
 from app.core.models import Order, Plan, User
-from app.core.security import hash_password, make_verify_token, read_verify_token, verify_password
-from app.shared import mailer as emailer
-from app.shared.http import current_user, dt, flash, render, require_user, require_admin
-from app.features.storage import client as nextcloud
-from app.features.storage.client import NextcloudError
+from app.shared.http import flash, require_user
 from app.features.billing import service as services
-from app.features.storage import service as storage_services
-from app.features.payments import service as payment_services
 from app.features.payments import vnpay
 
 router = APIRouter(prefix='/billing')
@@ -24,7 +17,6 @@ def _client_ip(request: Request) -> str:
     forwarded = request.headers.get("x-forwarded-for", "").split(",")[0].strip()
     ip = forwarded or (request.client.host if request.client else "")
     return ip if IPV4.match(ip) else "127.0.0.1"  # VNPay yêu cầu IPv4
-
 
 
 @router.post("/checkout")

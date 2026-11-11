@@ -1,28 +1,17 @@
-import re
-import secrets
-from fastapi import APIRouter, BackgroundTasks, Depends, Form, Request
-from fastapi.responses import JSONResponse, RedirectResponse
-from sqlalchemy import func
+from fastapi import APIRouter, BackgroundTasks, Depends, Request
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
-from app.core.config import settings
 from app.core.database import get_db
-from app.core.models import Order, Plan, User
-from app.core.security import hash_password, make_verify_token, read_verify_token, verify_password
+from app.core.models import Order
 from app.shared import mailer as emailer
-from app.shared.http import current_user, dt, flash, render, require_user, require_admin
-from app.features.storage import client as nextcloud
-from app.features.storage.client import NextcloudError
-from app.features.billing import service as services
-from app.features.storage import service as storage_services
+from app.shared.http import dt, render
 from app.features.payments import service as payment_services
-from app.features.payments import vnpay
 
 router = APIRouter(prefix='/billing')
 
 def _send_receipt(order: Order) -> None:
     emailer.send_receipt(order.user.email, order.user.full_name, order.plan.name, order.months,
                          order.amount_vnd, dt(order.user.plan_expires_at))
-
 
 
 @router.get("/vnpay/return")
@@ -46,7 +35,6 @@ def vnpay_return(request: Request, background: BackgroundTasks, db: Session = De
     return render(request, "message.html", None, title="Thanh toán chưa hoàn tất",
                   text="Giao dịch đã bị hủy hoặc không thành công. Bạn chưa bị trừ tiền.", kind="error",
                   link=("/dashboard", "Thử lại"))
-
 
 
 @router.get("/vnpay/ipn")
