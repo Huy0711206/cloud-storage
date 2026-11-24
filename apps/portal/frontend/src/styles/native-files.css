@@ -18,7 +18,9 @@
 .files-surface [data-slot=table-head]:first-child{padding-left:20px}
 .files-surface [data-slot=table-head]{height:48px}
 .files-surface [data-slot=table-cell]{padding-top:10px!important;padding-bottom:10px!important}
-.files-surface [data-slot=table-cell]:first-child{padding-left:20px;max-width:0;width:100%}
+.files-surface [data-slot=table-cell]:first-child{padding-left:20px}
+.files-surface [data-slot=table-cell]:first-child:not(.files-select-column),.files-surface .files-name-column{max-width:0;width:100%}
+.files-surface .files-select-column{width:44px;min-width:44px}
 .files-size-column{min-width:110px}
 .files-date-column{min-width:130px}
 .files-row-actions{width:60px;text-align:right;padding-right:12px}
@@ -59,6 +61,7 @@ button.file-name:focus-visible{outline:2px solid var(--ring);outline-offset:3px}
  .files-primary-actions{width:100%;flex-wrap:nowrap}.files-primary-actions>button{flex:1;min-width:0}
  .files-date-column{display:none}.files-size-column{min-width:84px;font-size:12px!important}
  .files-surface [data-slot=table-cell]:first-child{padding-left:12px}.files-surface [data-slot=table-head]:first-child{padding-left:12px}
+ .files-surface .files-select-column{width:36px;min-width:36px}
  .files-surface [data-slot=table-cell]{padding-inline:8px}.file-name{gap:8px}.file-name>svg{width:18px;height:18px}
  .files-upload-status{padding:10px 12px}.files-upload-status>div:first-child{flex-wrap:wrap;gap:8px}.files-upload-status strong{flex-basis:70%}
  .files-upload-status span{margin-left:26px}.files-upload-status button{margin-left:auto}

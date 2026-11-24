@@ -92,11 +92,52 @@ sudo docker compose -f compose.aws.yml -f compose.tunnel.yml logs --tail 30 tunn
 
 Chỉ chia sẻ phần lỗi cần thiết, che thông tin riêng. Không in/gửi toàn bộ config. Không tạo tunnel hay tên miền khác để chữa lỗi khởi động.
 
+### Phân biệt nguyên nhân sau khi cập nhật Portal
+
+```bash
+curl -sS -i http://127.0.0.1:8000/readyz
+sudo docker compose -f compose.aws.yml -f compose.tunnel.yml exec -T portal python -m app.features.administration.health
+```
+
+| Dấu hiệu | Kiểm tra tiếp |
+|---|---|
+| EC2 đang dừng hoặc chưa qua kiểm tra trạng thái | Xem máy `cloudbox-app-01` và phiên lab trong AWS Console. |
+| `/healthz` không phản hồi trên EC2 | Xem trạng thái và log của Portal. |
+| `/healthz` trả 200, `/readyz` trả 503 | Dùng lệnh chẩn đoán để xem `database` và `storage`, rồi kiểm tra PostgreSQL hoặc volume kho tệp tương ứng. |
+| Hai endpoint Portal phản hồi tốt, `:20241/ready` lỗi hoặc website hiện 1033 | Kiểm tra container `tunnel` và trạng thái kết nối trong Cloudflare Dashboard. |
+| `budget` hoặc `storage` báo ngưỡng | Xem **Quản trị → Tổng quan**. Ngân sách gần đầy khi còn tối đa 20% và hết ngân sách khi còn 0 byte. Ổ gần đầy khi còn tối đa 10% dung lượng hoặc 2 GiB, tùy mốc nào cao hơn. Còn tối đa 1 GiB là mức nghiêm trọng. |
+
+`/readyz` chỉ trả trạng thái tổng quát. Kho gần đầy vẫn có thể phục vụ đọc, trong khi quy tắc hiện hành kiểm tra dung lượng trước khi nhận tệp mới. Chỉ số ổ lấy từ hệ thống tệp của volume Portal. Khi thử trên Windows, Docker Desktop báo dung lượng của môi trường Docker.
+
 ## 5. Triển khai bản cập nhật sau khi sửa mã nguồn
 
 **Chỉ thực hiện khi muốn cập nhật ứng dụng. Mở web hằng ngày hoặc chỉ sửa README thì không làm phần này.** Sửa mã trên laptop không tự thay website AWS.
 
 Quy trình: **kiểm thử → build image trên laptop → chuyển image → nạp trên EC2 → thay riêng Portal → kiểm tra web**. Giữ nguyên database, kho tệp, tunnel và private config. Với thay đổi schema/database, cần kế hoạch migration riêng; quy trình này không thay thế kế hoạch đó.
+
+### Lệnh phát hành từ laptop
+
+Mở Docker Desktop trên **laptop**. Trong PowerShell 7 tại thư mục dự án, cài phụ thuộc kiểm thử theo [hướng dẫn phát triển](../development/DEVELOPMENT.md). Chạy thử chỉ trên laptop bằng lệnh sau.
+
+```powershell
+pwsh -File ./scripts/operations/release-aws.ps1 -PrepareOnly
+```
+
+Khi muốn phát hành, mở AWS Academy Lab, đợi EC2 chạy và lấy **Public IPv4** hiện tại. Dùng tệp PEM và tệp **known_hosts** đã xác minh cho EC2. Điền các biến bên dưới bằng đường dẫn thực tế trên laptop.
+
+```powershell
+$Ec2Ip = Read-Host 'Public IPv4 cua EC2'
+$KeyFile = Read-Host 'Duong dan day du toi tep PEM'
+$KnownHostsFile = Read-Host 'Duong dan day du toi tep known_hosts da xac minh'
+
+pwsh -File ./scripts/operations/release-aws.ps1 -Ec2Ip $Ec2Ip -KeyFile $KeyFile -KnownHostsFile $KnownHostsFile
+```
+
+Nếu tệp known_hosts lưu khóa của EC2 dưới tên cũ, thêm `-HostKeyAlias` với đúng tên đó. Lệnh yêu cầu xác thực khóa máy chủ ở cả SSH và SCP.
+
+Quy trình tự động chạy kiểm thử, build image cho EC2, kiểm lại đúng image bằng trình duyệt, gửi gói qua SCP và đối chiếu checksum. Script trên EC2 kiểm tra và cập nhật riêng Portal, đối chiếu volume, chờ sẵn sàng và gọi trang chủ nội bộ. Nếu Portal mới không qua bước đó, script dùng lại image trước. Sau cùng, laptop kiểm tra HTTPS cùng mã frontend mới.
+
+Bản nâng cấp Đã đánh dấu, Thông báo và Hoạt động nhóm tạo thêm ba bảng trong lần Portal đầu tiên chạy. Đối với bản cập nhật có thay đổi schema, xác minh khả năng dùng lại image trước với schema mới trên môi trường QA trước khi dùng lệnh phát hành.
 
 ### Bước 1 — Kiểm thử trên laptop
 
@@ -165,6 +206,10 @@ Website có thể gián đoạn ngắn khi thay Portal. Không chạy `down -v`,
 ### Bước 6 — Xác nhận bản mới
 
 Chạy các lệnh kiểm tra ở mục 4, rồi thử đăng nhập, mở kho, tải lên/tải xuống một tệp nhỏ, kiểm quota và nội dung vừa sửa. Chỉ kết luận triển khai thành công khi các kiểm tra đạt. Nếu chỉ thay mã và chưa thay dữ liệu/schema, có thể đánh giá quay lại image cũ; nếu đã có migration thì phải kiểm tính tương thích trước.
+
+### Lần phát hành đầu tiên có Nhật ký quản trị
+
+Kiểm tra image mới với cơ sở dữ liệu QA đã có tài khoản và dữ liệu mẫu. Khi Portal khởi động, cơ chế tạo bảng hiện có tạo thêm `admin_audit_entries`. Tài khoản PostgreSQL của Portal cần quyền tạo bảng trong schema dùng cho CloudBox. Sau khi áp dụng image theo các bước trên, kiểm tra `/readyz`, mở **Quản trị → Nhật ký quản trị** và kiểm tra tài khoản, gói, đơn hàng và kho vẫn đọc được. Nhật ký bắt đầu từ các thao tác quản trị thực hiện sau khi tính năng hoạt động.
 
 ## 6. Chỉnh email hoặc cấu hình ứng dụng
 

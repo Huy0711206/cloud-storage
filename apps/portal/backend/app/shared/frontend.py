@@ -51,6 +51,7 @@ def payload(name, current, ctx, flashes, nc_public_url):
         "recent": [order(o, admin) for o in ctx.get("recent", [])],
         "users": [user(u) for u in ctx.get("users", [])],
         "stats": ctx.get("stats", dict(users=0, verified=0, paid_users=0, orders_paid=0, revenue=0, unsynced=0)),
+        "audit": ctx.get("audit") if admin else None,
         "q": ctx.get("q", ""), "form": ctx.get("form", {}),
         "error": ctx.get("error"), "unverified": ctx.get("unverified", False),
         "flashes": flashes, "usage": ctx.get("usage"),

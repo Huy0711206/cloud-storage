@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Nhật ký quản trị{% endblock %}
+{% block content %}
+<h2>Nhật ký quản trị</h2>
+{% set active = 'audit' %}{% include "admin_nav.html" %}
+<table>
+  <caption>Lịch sử thao tác quản trị</caption>
+  <thead><tr><th>Thời điểm (UTC)</th><th>Người thực hiện</th><th>Thao tác</th><th>Đối tượng</th><th>Trước</th><th>Sau</th></tr></thead>
+  <tbody>
+  {% for entry in audit.entries %}
+    <tr><td><time datetime="{{ entry.created_at }}">{{ entry.created_at }}</time></td>
+      <td>Quản trị viên #{{ entry.actor_id }}</td><td>{{ entry.action }}</td><td>{{ entry.subject }}</td>
+      <td>{{ entry.before }}</td><td>{{ entry.after }}</td></tr>
+  {% else %}
+    <tr><td colspan="6">Chưa có thao tác được ghi nhận.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% if audit.pages > 1 %}
+<nav aria-label="Phân trang nhật ký">
+  {% if audit.page > 1 %}<a href="?page={{ audit.page - 1 }}">Trang trước</a>{% endif %}
+  <span>Trang {{ audit.page }}/{{ audit.pages }}</span>
+  {% if audit.page < audit.pages %}<a href="?page={{ audit.page + 1 }}">Trang sau</a>{% endif %}
+</nav>
+{% endif %}
+{% endblock %}

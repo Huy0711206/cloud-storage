@@ -56,7 +56,7 @@ export function LandingPage({ data }: { data: PageData }) {
           <div className="preview-public-hero-actions">
             <Button size="lg" asChild>
               <a href={destination}>
-                {data.user ? "Mở không gian của tôi" : "Tạo kho lưu trữ"}
+                {data.user ? "Mở không gian của tôi" : "Bắt đầu miễn phí"}
                 <ArrowUpRight data-icon="inline-end" aria-hidden />
               </a>
             </Button>

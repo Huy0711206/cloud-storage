@@ -1,4 +1,4 @@
-param([switch]$Rebuild,[switch]$RebuildMail,[switch]$NoBrowser)
+﻿param([switch]$Rebuild,[switch]$RebuildMail,[switch]$NoBrowser)
 $ErrorActionPreference='Stop'
 $projectRoot=Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 Set-Location -LiteralPath $projectRoot

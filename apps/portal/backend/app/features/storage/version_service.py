@@ -104,6 +104,8 @@ def restore_version(db: Session, user: User, node_id: str, version_id: str, *, t
             node.blob_key, node.sha256, node.size = key, version.sha256, version.size
             node.modified_at = utcnow()
             node.mime_type = mimetypes.guess_type(node.name)[0] or "application/octet-stream"
+            from .team_activity import record_activity
+            record_activity(db, team, actor, "restore_version", node)
             db.commit()
         except Exception:
             db.rollback()

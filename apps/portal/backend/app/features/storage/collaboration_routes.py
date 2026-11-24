@@ -1,7 +1,7 @@
 """Same-origin group operations and upload-only file request routes."""
 from html import escape
 import json,secrets
-from fastapi import APIRouter,Depends,Request
+from fastapi import APIRouter,Depends,Query,Request
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel,Field,StrictInt
 from sqlalchemy.orm import Session
@@ -10,6 +10,8 @@ from app.core.models import User
 from app.shared.csrf import ensure_token
 from .routes import StorageRoute,storage_user,same_origin,download_node
 from . import native_service as s,team_service as teams,request_service as requests
+from .preview import preview_response
+from .team_activity import list_activity
 
 router=APIRouter(route_class=StorageRoute,dependencies=[Depends(same_origin)])
 
@@ -66,6 +68,19 @@ def change(team_id:str,node_id:str,body:ChangeBody,db:Session=Depends(get_db),us
 def trash(team_id:str,node_id:str,db:Session=Depends(get_db),user:User=Depends(storage_user)):return teams.team_trash(db,user,team_id,node_id)
 @router.post('/api/teams/{team_id}/files/{node_id}/restore')
 def restore(team_id:str,node_id:str,db:Session=Depends(get_db),user:User=Depends(storage_user)):return teams.team_trash(db,user,team_id,node_id,True)
+@router.get("/api/teams/{team_id}/activity")
+def activity(team_id: str, before: int | None = Query(None, ge=1, le=2**31-1),
+             db: Session = Depends(get_db), user: User = Depends(storage_user)):
+    return list_activity(db, user, team_id, before)
+
+
+@router.get("/api/teams/{team_id}/files/{node_id}/preview")
+@router.head("/api/teams/{team_id}/files/{node_id}/preview", include_in_schema=False)
+def preview(team_id: str, node_id: str, db: Session = Depends(get_db), user: User = Depends(storage_user)):
+    team, _, _ = teams.access(db, user, team_id)
+    return preview_response(teams.scoped_node(db, team, node_id))
+
+
 @router.get('/api/teams/{team_id}/files/{node_id}/download')
 def download(team_id:str,node_id:str,db:Session=Depends(get_db),user:User=Depends(storage_user)):
     team,_,_=teams.access(db,user,team_id)

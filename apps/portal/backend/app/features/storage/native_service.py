@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.core.models import User, Plan, utcnow
 from .native_models import FileNode, FileShare, StorageGarbage, UploadSession, identifier
+from .workspace_models import FileFavorite
 from .migration_models import FileVersion
 
 CHUNK_SIZE = 8 * 1024 * 1024
@@ -148,67 +149,107 @@ def ancestor_nodes(db: Session, owner_id: int, parent_id: str | None) -> list[di
     return list(reversed(result))
 
 
-def list_nodes(db: Session, user: User, parent_id: str | None, search: str = "", trash: bool = False, sort: str = "name", offset:int=0,limit:int=200):
+def list_nodes(db: Session, user: User, parent_id: str | None, search: str = "", trash: bool = False,
+               sort: str = "name", offset: int = 0, limit: int = 200, *, favorites=False, kind="all",
+               modified_days=None, min_size=None):
     from .access import fresh_user, scoped_parent, team_node_ids
+    from .discovery import filter_nodes, parent_locations
     user = fresh_user(db,user.id)
     scoped_parent(db,user,None,parent_id)
     q = db.query(FileNode).filter_by(owner_id=user.id)
     hidden = team_node_ids(db,user.id)
     if hidden:q=q.filter(FileNode.id.notin_(hidden))
+    finding = bool(search or favorites or kind != "all" or modified_days or min_size is not None)
+    stars = db.query(FileFavorite.node_id).filter_by(user_id=user.id)
     if trash:
         q = q.filter(FileNode.deleted_at.is_not(None), FileNode.trash_root_id == FileNode.id)
     else:
         q = q.filter(FileNode.deleted_at.is_(None))
-        if not search:
+        if favorites:
+            q = q.filter(FileNode.id.in_(stars.statement))
+        if not finding:
             q = q.filter(FileNode.parent_id == parent_id)
+        q = filter_nodes(q, kind, modified_days, min_size)
     if search:
         q = q.filter(FileNode.name.ilike("%"+search.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")+"%", escape="\\"))
     order = {"name": FileNode.name.asc(), "name_desc": FileNode.name.desc(), "size": FileNode.size.desc(), "modified": FileNode.modified_at.desc()}.get(sort, FileNode.name.asc())
     offset=max(0,offset);limit=min(500,max(1,limit));count=q.count()
     nodes = q.order_by(FileNode.is_folder.desc(), order, FileNode.id).offset(offset).limit(limit).all()
     next_offset=offset+len(nodes)
-    return {"items": [serialize_node(n) for n in nodes], "ancestors": ancestor_nodes(db,user.id,parent_id), "usage": quota_usage(db,user), "limit":limit,"offset":offset,"has_more":next_offset<count,"next_offset":next_offset if next_offset<count else None,"total_count":count}
+    items = [serialize_node(node) for node in nodes]
+    if not trash and nodes:
+        starred = {row[0] for row in stars.filter(FileFavorite.node_id.in_([node.id for node in nodes]))}
+        locations = parent_locations(db, user.id, nodes) if finding else {}
+        for item in items:
+            item["starred"] = item["id"] in starred
+            if finding:
+                item["location"] = locations[item["id"]]
+    return {"items": items, "ancestors": ancestor_nodes(db,user.id,parent_id), "usage": quota_usage(db,user), "limit":limit,"offset":offset,"has_more":next_offset<count,"next_offset":next_offset if next_offset<count else None,"total_count":count}
 
 
 def create_folder(db: Session, user: User, name: str, parent_id: str | None, *, team_id: str | None = None):
     from .access import scope_guard, scoped_node, scoped_parent
+    from .team_activity import record_activity
+    actor = user
     with scope_guard(db,user,team_id=team_id,write=True) as (user,team,_):
         name = valid_name(name)
         parent_id = scoped_parent(db,user,team,parent_id)
         assert_available(db,user.id,parent_id,name)
         n = FileNode(owner_id=user.id,parent_id=parent_id,name=name,is_folder=True)
-        db.add(n); db.commit()
+        db.add(n)
+        record_activity(db, team, actor, "folder", n)
+        db.commit()
         return serialize_node(n)
 
 
 def update_node(db: Session, user: User, node_id: str, changes: dict, *, team_id: str | None = None):
-    from .access import scope_guard, scoped_node, scoped_parent
+    from .access import scope_guard, scoped_node
+    from .team_activity import record_activity
+    actor = user
     with scope_guard(db,user,team_id=team_id,write=True) as (user,team,_):
         n = scoped_node(db,user,team,node_id,mutable=True)
-        name = valid_name(changes.get("name", n.name))
-        parent = changes.get("parent_id", n.parent_id)
-        parent = scoped_parent(db,user,team,parent)
-        if parent in {x.id for x in descendants(db,n,True)}:
-            raise StorageError(409,"Không thể di chuyển thư mục vào chính nó hoặc thư mục con.")
-        assert_available(db,user.id,parent,name,n.id)
-        n.name, n.parent_id, n.modified_at = name, parent, utcnow()
+        old_name, old_parent = n.name, n.parent_id
+        _update_scoped_node(db, user, team, n, changes)
+        if n.name != old_name:
+            record_activity(db, team, actor, "rename", n)
+        if n.parent_id != old_parent:
+            record_activity(db, team, actor, "move", n)
         db.commit()
         return serialize_node(n)
 
 
+def _update_scoped_node(db, user, team, node, changes):
+    from .access import scoped_parent
+    name = valid_name(changes.get("name", node.name))
+    parent = scoped_parent(db, user, team, changes.get("parent_id", node.parent_id))
+    if parent in {child.id for child in descendants(db, node, True)}:
+        raise StorageError(409, "Không thể di chuyển thư mục vào chính nó hoặc thư mục con.")
+    assert_available(db, user.id, parent, name, node.id)
+    node.name, node.parent_id, node.modified_at = name, parent, utcnow()
+
+
 def trash_node(db: Session, user: User, node_id: str, *, team_id: str | None = None):
-    from .access import scope_guard, scoped_node, scoped_parent
+    from .access import scope_guard, scoped_node
+    from .team_activity import record_activity
+    actor = user
     with scope_guard(db,user,team_id=team_id,write=True) as (user,team,_):
         n = scoped_node(db,user,team,node_id,mutable=True)
-        now = utcnow()
-        for child in descendants(db,n):
-            child.deleted_at, child.trash_root_id = now,n.id
+        _trash_scoped_node(db, n)
+        record_activity(db, team, actor, "trash", n)
         db.commit()
         return {"ok":True,"usage":quota_usage(db,user)}
 
 
+def _trash_scoped_node(db, node):
+    now = utcnow()
+    for child in descendants(db, node):
+        child.deleted_at, child.trash_root_id = now, node.id
+
+
 def restore_node(db: Session, user: User, node_id: str, *, team_id: str | None = None):
     from .access import scope_guard, scoped_node, scoped_parent
+    from .team_activity import record_activity
+    actor = user
     with scope_guard(db,user,team_id=team_id,write=True) as (user,team,_):
         n = scoped_node(db,user,team,node_id,True,mutable=True)
         if not n.deleted_at or n.trash_root_id != n.id:
@@ -222,6 +263,7 @@ def restore_node(db: Session, user: User, node_id: str, *, team_id: str | None =
         for child in db.query(FileNode).filter_by(owner_id=user.id,trash_root_id=n.id).all():
             child.deleted_at = child.trash_root_id = None
             child.modified_at = utcnow()
+        record_activity(db, team, actor, "restore", n)
         db.commit()
         return serialize_node(n)
 
@@ -264,6 +306,7 @@ def purge_node(db: Session, user: User, node_id: str, confirm_id: str, *, team_i
         db.flush()
         db.query(FileShare).filter(FileShare.owner_id==user.id,FileShare.node_id.in_(ids)).delete(synchronize_session=False)
         db.query(FileVersion).filter(FileVersion.owner_id==user.id,FileVersion.node_id.in_(ids)).delete(synchronize_session=False)
+        db.query(FileFavorite).filter(FileFavorite.node_id.in_(ids)).delete(synchronize_session=False)
         # A single statement permits PostgreSQL to check self-FKs after all subtree rows are removed.
         db.query(FileNode).filter(FileNode.owner_id==user.id,FileNode.id.in_(ids)).delete(synchronize_session=False)
         for key in keys:db.add(StorageGarbage(kind="blob",object_key=key))

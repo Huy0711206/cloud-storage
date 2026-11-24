@@ -1,0 +1,37 @@
+name: CloudBox checks
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: apps/portal/frontend/package.json
+      - name: Install backend test dependencies
+        run: python -m pip install -r apps/portal/backend/requirements.txt pytest
+      - name: Check CloudBox
+        shell: pwsh
+        run: ./scripts/development/check.ps1
+      - name: Install browser test dependencies
+        run: |
+          python -m pip install -r scripts/development/browser-requirements.txt
+          python -m playwright install --with-deps chromium
+      - name: Test the built Portal in Chromium
+        run: |
+          docker build --platform linux/amd64 -t cloudbox-portal:ci ./apps/portal
+          python -X utf8 scripts/development/check-browser.py --image cloudbox-portal:ci
+      - name: Check deployment script syntax
+        run: bash -n scripts/operations/release-aws-portal.sh

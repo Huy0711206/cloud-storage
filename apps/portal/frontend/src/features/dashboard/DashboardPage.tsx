@@ -12,11 +12,11 @@ import { SettingsPage } from "@/features/accounts/SettingsPage"
 export function DashboardPage({data,section}:{data:PageData;section:string}) {
  if(section==="requests")return <FileRequestsPage/>
  if(section==="teams")return <TeamsPage/>
- if(data.user?.role==="admin"||!data.user?.plan)return <StoragePage data={data} mode={(["storage","shared","trash"].includes(section)?section:"storage") as "storage"|"shared"|"trash"}/>
+ if(data.user?.role==="admin"||!data.user?.plan)return <StoragePage data={data} mode={(["storage","favorites","shared","trash"].includes(section)?section:"storage") as "storage"|"favorites"|"shared"|"trash"}/>
  if(section==="plans") return <PlansPage data={data}/>
  if(section==="orders") return <OrdersPage orders={data.orders}/>
  if(section==="settings") return <SettingsPage data={data}/>
- if(["storage","shared","trash"].includes(section)) return <StoragePage data={data} mode={section as "storage"|"shared"|"trash"}/>
+ if(["storage","favorites","shared","trash"].includes(section)) return <StoragePage data={data} mode={section as "storage"|"favorites"|"shared"|"trash"}/>
  const user=data.user!, plan=user.plan!
  return <div className="flex min-w-0 flex-col gap-7">
   <PageHeading title={"Chào "+user.full_name.split(" ").filter(Boolean).at(-1)+","} description="Một nơi cho dữ liệu. Nhiều không gian cho ý tưởng." action={<StorageButton data={data}/>}/>

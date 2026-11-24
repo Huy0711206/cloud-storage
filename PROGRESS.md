@@ -1,5 +1,31 @@
 # Tiến độ CloudBox
 
+## 24/11/2026 — Tìm tệp, thông báo, hoạt động nhóm và phát hành
+
+- Kho cá nhân có **Đã đánh dấu** cho tệp và thư mục, bộ lọc theo loại, ngày sửa, kích thước và lối mở thư mục chứa kết quả.
+- Thành viên đang có quyền vào kho nhóm xem trước tệp bằng trình xem sẵn có. **Hoạt động nhóm** ghi thao tác cập nhật tệp cùng giao dịch của thao tác đó.
+- **Thông báo** theo tài khoản hiển thị lời mời còn hiệu lực, tệp nhận qua yêu cầu và gói trả phí sắp hết hạn.
+- Playwright kiểm thử image Docker bằng dữ liệu thử. Lệnh phát hành PowerShell có chế độ kiểm thử local và chế độ cập nhật Portal qua SSH khi chủ dự án chạy. [Báo cáo QA](artifacts/qa/cloudbox-workspace-features-2026-11-24.md)
+
+- Đã phát hành bản release-20261124075455-4332fea5 lên AWS Academy EC2. HTTPS phục vụ đúng giao diện mới và PostgreSQL có đủ ba bảng bổ sung.
+
+## 23/11/2026 — Mở kho từ menu và xem tệp trực tiếp
+
+- Menu tài khoản có **Kho lưu trữ** cho quản trị viên và thành viên. Trong kho cá nhân, tên tệp mở trực tiếp ảnh, PDF hoặc văn bản được hỗ trợ. Menu ba chấm tiếp tục có **Xem trước**.
+- Dùng cột riêng cho ô chọn để tên tệp nằm sát bên trái. Đã thử ảnh, chữ tiếng Việt, điều hướng thư mục và tệp chỉ tải xuống trong bản QA. [Kết quả kiểm thử](artifacts/qa/cloudbox-quick-preview-2026-11-23.md)
+
+- Đã phát hành riêng Portal lên AWS Academy. Kiểm tra qua HTTPS xác nhận bản giao diện mới và cả hai điểm kiểm tra sức khỏe. Chi tiết triển khai có trong báo cáo QA ở trên.
+
+## 23/11/2026 — Kiểm tra phát hành, kho cá nhân và quản trị
+
+- Lệnh `scripts/development/check.ps1` chạy kiểm thử backend, cài frontend theo lockfile, kiểm tra TypeScript, chạy test Node và build giao diện. Bộ mặc định thu thập thêm ba bài kiểm tra nạp giao diện. Workflow GitHub Actions chạy khi cập nhật pull request.
+- `/healthz` tiếp tục kiểm tra Portal còn phản hồi. `/readyz` kiểm tra PostgreSQL và truy cập kho. Quản trị hiển thị ngân sách chung và dung lượng trống của ổ theo hai ngưỡng riêng. Thống kê gói trả phí dùng thời điểm hiện hành.
+- Kho cá nhân có xem trước ảnh/PDF, di chuyển hoặc đưa nhiều mục vào thùng rác, và thử lại khi tải lên bị gián đoạn. Di chuyển hàng loạt giữ mục lỗi trong danh sách chọn. Khi thử lại tải lên, giao diện đối chiếu vị trí máy chủ đã ghi.
+- Nhật ký quản trị ghi khóa/mở khóa, cấp gói và đổi giá trong cùng giao dịch với thay đổi. Bảng `admin_audit_entries` được thêm khi Portal khởi động. Xem hướng dẫn phát hành trong tài liệu AWS.
+- Kiểm thử riêng đạt 201 bài backend mặc định, 8 bài PostgreSQL và 7 bài Node. TypeScript và build đạt. PostgreSQL QA tạo thêm bảng nhật ký và giữ hàng tài khoản cũ. Kiểm tra trình duyệt với dữ liệu giả gồm ảnh, hộp xem PDF ở 390 px, di chuyển một phần, thùng rác, chẩn đoán và nhật ký. [Chi tiết QA](artifacts/qa/cloudbox-improvements-2026-11-23.md).
+
+- Đã phát hành lên AWS Academy sau khi người dùng xác nhận đổi nguồn SSH của riêng quy tắc TCP 22. Đối chiếu SHA-256 và Docker image, thay riêng Portal, kiểm PostgreSQL và bảng admin_audit_entries. Health/readiness và giao diện mới qua HTTPS đều đạt. Chức năng sau đăng nhập đã thử trên môi trường QA ở trên.
+
 ## Quyết định hiện hành — 09/11/2026
 
 - Một origin CloudBox; production chỉ `portal` và `db`, lưu trữ native. Nextcloud/Redis legacy và Mailpit development giữ nguồn, không là phụ thuộc vận hành.

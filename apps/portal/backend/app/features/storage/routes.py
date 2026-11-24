@@ -3,7 +3,7 @@ from html import escape
 import errno
 from urllib.parse import quote
 
-from fastapi import APIRouter, Depends, Form, HTTPException, Request
+from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.routing import APIRoute
 from pydantic import BaseModel, Field, StrictInt
@@ -16,7 +16,12 @@ from app.shared.http import current_user
 from . import native_service as s
 from .native_models import FileNode
 from .access import personal_node, team_node_ids
+from .batch import BatchBody, apply_batch
 from . import share_service as sharing
+from .preview import preview_response
+from .discovery import FileKind, set_favorite
+from .notifications import list_notifications, mark_read
+from .uploads import personal_upload_progress
 
 
 class StorageRoute(APIRoute):
@@ -47,6 +52,11 @@ def storage_user(user:User|None=Depends(current_user)):
 router=APIRouter(route_class=StorageRoute,dependencies=[Depends(same_origin)])
 
 
+@router.post("/api/files/batch")
+def batch(body: BatchBody, db: Session = Depends(get_db), user: User = Depends(storage_user)):
+    return apply_batch(db, user, body.action, body.ids, body.parent_id)
+
+
 class FolderBody(BaseModel):
     name:str=Field(min_length=1,max_length=255)
     parent_id:str|None=None
@@ -72,8 +82,33 @@ class PurgeBody(BaseModel):
 
 
 @router.get("/api/files")
-def files(parent:str|None=None,q:str="",trash:bool=False,sort:str="name",offset:int=0,limit:int=200,db:Session=Depends(get_db),user:User=Depends(storage_user)):
-    return s.list_nodes(db,user,parent or None,q[:255],trash,sort,offset,limit)
+def files(parent: str | None = None, q: str = "", trash: bool = False, sort: str = "name",
+          offset: int = 0, limit: int = 200, favorites: bool = False, kind: FileKind = "all",
+          modified_days: int | None = Query(None, ge=1, le=365),
+          min_size: int | None = Query(None, ge=0, le=2**63-1),
+          db: Session = Depends(get_db), user: User = Depends(storage_user)):
+    return s.list_nodes(db, user, parent or None, q[:255], trash, sort, offset, limit,
+                        favorites=favorites, kind=kind, modified_days=modified_days, min_size=min_size)
+
+
+@router.put("/api/files/{node_id}/favorite")
+def add_favorite(node_id: str, db: Session = Depends(get_db), user: User = Depends(storage_user)):
+    return set_favorite(db, user, node_id, True)
+
+
+@router.delete("/api/files/{node_id}/favorite")
+def remove_favorite(node_id: str, db: Session = Depends(get_db), user: User = Depends(storage_user)):
+    return set_favorite(db, user, node_id, False)
+
+
+@router.get("/api/notifications")
+def notifications(db: Session = Depends(get_db), user: User = Depends(storage_user)):
+    return list_notifications(db, user)
+
+
+@router.post("/api/notifications/{notice_id}/read")
+def read_notice(notice_id: str, db: Session = Depends(get_db), user: User = Depends(storage_user)):
+    return mark_read(db, user, notice_id)
 
 
 @router.get("/api/storage/usage")
@@ -130,9 +165,20 @@ def download(node_id:str,db:Session=Depends(get_db),user:User=Depends(storage_us
     return download_node(personal_node(db,user,node_id))
 
 
+@router.get("/api/files/{node_id}/preview")
+@router.head("/api/files/{node_id}/preview", include_in_schema=False)
+def preview(node_id: str, db: Session = Depends(get_db), user: User = Depends(storage_user)):
+    return preview_response(personal_node(db, user, node_id))
+
+
 @router.post("/api/uploads",status_code=201)
 def upload_init(body:UploadBody,db:Session=Depends(get_db),user:User=Depends(storage_user)):
     return s.start_upload(db,user,body.name,body.parent_id,body.size,body.replace_node_id)
+
+
+@router.get("/api/uploads/{upload_id}")
+def upload_progress(upload_id: str, db: Session = Depends(get_db), user: User = Depends(storage_user)):
+    return JSONResponse(personal_upload_progress(db, user, upload_id), headers={"Cache-Control": "private, no-store"})
 
 
 @router.put("/api/uploads/{upload_id}")

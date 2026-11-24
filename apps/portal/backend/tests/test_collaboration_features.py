@@ -58,6 +58,79 @@ def test_explicit_invitation_and_namespace(env):
     assert c.get('/api/files/'+root).status_code==404
     c.headers['x-user']='3';assert c.post('/api/team-invitations/'+iid+'/accept').status_code==404
 
+
+def test_favorites_and_search_location_stay_personal(env):
+    c, _ = env
+    parent = folder(c, "Projects")
+    child = c.post("/api/files/folders", json={"name": "Reports", "parent_id": parent}).json()["id"]
+    t = team(c)
+    hidden = c.post(f"/api/teams/{t['id']}/folders", json={"name": "Reports team"}).json()["id"]
+    assert c.put(f"/api/files/{child}/favorite").status_code == 200
+    assert c.put(f"/api/files/{child}/favorite").status_code == 200
+    assert c.put(f"/api/files/{hidden}/favorite").status_code == 404
+    results = c.get("/api/files", params={"q": "Reports", "kind": "folder", "favorites": True}).json()["items"]
+    assert len(results) == 1
+    assert results[0]["starred"] and results[0]["location"] == [{"id": parent, "name": "Projects"}]
+    assert not c.get("/api/files?q=Reports&kind=pdf").json()["items"]
+    c.headers["x-user"] = "2"
+    assert c.delete(f"/api/files/{child}/favorite").status_code == 404
+    assert not c.get("/api/files?favorites=true").json()["items"]
+    c.headers["x-user"] = "1"
+    assert c.delete(f"/api/files/{child}/favorite").status_code == 200
+    assert not c.get("/api/files?favorites=true").json()["items"]
+
+
+def test_team_preview_and_activity_respect_current_membership(env):
+    c, _ = env
+    personal_id = folder(c, "Personal")
+    t = team(c)
+    base = f"/api/teams/{t['id']}"
+    join(c, t)
+    upload = c.post(base + "/uploads", json={"name": "notes.txt", "size": 3}).json()["id"]
+    assert c.put(f"{base}/uploads/{upload}", content=b"abc", headers={"Upload-Offset": "0"}).status_code == 200
+    file = c.post(f"{base}/uploads/{upload}/complete").json()
+    assert c.post(f"{base}/uploads/{upload}/complete").status_code == 200
+    assert c.patch(f"{base}/files/{file['id']}", json={"name": "new.txt"}).status_code == 200
+    url = f"{base}/files/{file['id']}/preview"
+    assert c.head(url).headers["content-type"].startswith("text/plain")
+    assert c.get(url).content == b"abc"
+    assert c.get(f"{base}/files/{personal_id}/preview").status_code == 404
+    assert c.get(f"/api/files/{file['id']}/preview").status_code == 404
+    entries = c.get(base + "/activity").json()["items"]
+    assert [(item["action"], item["name"], item["actor"]) for item in entries] == [
+        ("rename", "new.txt", "User 2"), ("upload", "notes.txt", "User 2")
+    ]
+    c.headers["x-user"] = "1"
+    assert c.patch(base + "/members/2", json={"role": "viewer"}).status_code == 200
+    c.headers["x-user"] = "2"
+    assert c.get(url).status_code == 200
+    c.headers["x-user"] = "1"
+    assert c.delete(base + "/members/2").status_code == 200
+    c.headers["x-user"] = "2"
+    assert c.get(url).status_code == 404
+    assert c.get(base + "/activity").status_code == 404
+
+
+def test_notifications_are_read_per_account_and_hide_stale_invites(env):
+    c, factory = env
+    t = team(c)
+    invite(c, t, uid=2)
+    with factory() as db:
+        db.get(User, 1).plan_expires_at = utcnow() + timedelta(days=3)
+        db.commit()
+    plan = c.get("/api/notifications").json()["items"][0]
+    assert plan["kind"] == "plan_expiry" and not plan["read"]
+    c.headers["x-user"] = "2"
+    notice = c.get("/api/notifications").json()["items"][0]
+    assert notice["kind"] == "team_invite" and not notice["read"]
+    assert c.post(f"/api/notifications/{plan['id']}/read").status_code == 404
+    assert c.post(f"/api/notifications/{notice['id']}/read").status_code == 200
+    assert c.get("/api/notifications").json()["items"][0]["read"]
+    c.headers["x-user"] = "1"
+    assert c.delete(f"/api/teams/{t['id']}/members/2").status_code == 200
+    c.headers["x-user"] = "2"
+    assert not c.get("/api/notifications").json()["items"]
+
 def test_member_scope_and_revoked_upload(env):
     c,_=env;private=folder(c,'private');t=team(c);tid=t['id'];join(c,t)
     assert c.get(f'/api/teams/{tid}/files?parent={private}').status_code==404
@@ -110,11 +183,17 @@ def test_request_upload_only_and_cross_tokens(env):
     assert c.put(f'/api/requests/{token}/uploads/{uid}',content=b'abc',headers={'Upload-Offset':'0'}).status_code==200
     r=c.post(f'/api/requests/{token}/uploads/{uid}/complete');assert r.status_code==200,r.text
     assert r.json()=={'ok':True,'name':'guest.txt','size':3}
+    assert c.post(f'/api/requests/{token}/uploads/{uid}/complete').status_code==200
+    assert c.get('/api/notifications').status_code==401
     assert c.get(f'/api/requests/{token}/files').status_code==404
     assert c.post(f'/api/requests/{other}/uploads/{uid}/complete').status_code==404
     assert c.get('/api/files').status_code==401
     c.headers['x-user']='1';node=c.get('/api/files?parent='+row['parent_id']).json()['items'][0]
     assert c.get('/api/files/'+node['id']+'/download').content==b'abc'
+    notices = c.get('/api/notifications').json()['items']
+    assert len(notices) == 1 and (notices[0]['kind'], notices[0]['label']) == ('file_received', 'guest.txt')
+    c.headers['x-user'] = '2'
+    assert not c.get('/api/notifications').json()['items']
 
 def test_request_budget_reservations_offsets_and_path(env):
     c,_=env;row,token=request(c)

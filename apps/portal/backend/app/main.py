@@ -4,19 +4,21 @@ import time
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, Request
+from fastapi import Depends, FastAPI, Request
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.sessions import SessionMiddleware
+from sqlalchemy.orm import Session
 
 from .core import models  # noqa: F401  (đăng ký bảng)
 from .core import bootstrap
 from .features.billing import service as services
 from .core.config import settings
-from .core.database import Base, SessionLocal, engine
+from .core.database import Base, SessionLocal, engine, get_db
 from .shared.http import Redirect, render
 from .features.administration import routes as admin
+from .features.administration.health import dependency_status, is_ready
 from .features.authentication import routes as auth
 from .features.accounts import routes as accounts
 from .features.accounts import dashboard
@@ -135,3 +137,9 @@ async def _http_error_handler(request: Request, exc: StarletteHTTPException):
 @app.get("/healthz")
 def healthz():
     return {"status": "ok"}
+
+
+@app.get("/readyz")
+def readyz(db: Session = Depends(get_db)):
+    ready = is_ready(dependency_status(db))
+    return JSONResponse({"status": "ok" if ready else "unavailable"}, status_code=200 if ready else 503)

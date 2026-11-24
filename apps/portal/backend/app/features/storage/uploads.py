@@ -117,6 +117,12 @@ def start_upload(db, actor, name, parent_id, size, replace_node_id=None, *, team
         return {"id":row.id,"chunk_size":s.CHUNK_SIZE,"received":0,"size":size}
 
 
+def personal_upload_progress(db, actor, upload_id):
+    with scope_guard(db, actor) as (owner, team, request):
+        row = _upload(db, owner, team, request, actor, upload_id)
+        return {"received": row.received, "size": row.size}
+
+
 def append_chunk(db, actor, upload_id, data, offset, *, team_id=None, request_token=None):
     with scope_guard(db, actor, team_id=team_id, request_token=request_token, write=True) as (owner, team, request):
         row = _upload(db, owner, team, request, actor, upload_id)
@@ -194,6 +200,11 @@ def finish_upload(db, actor, upload_id, *, team_id=None, request_token=None):
                 db.add(node)
             db.flush()
             row.state, row.node_id = "complete", node.id
+            from .team_activity import record_activity
+            from .notifications import record_receipt
+            record_activity(db, team, actor, "replace" if target else "upload", node)
+            if request is not None:
+                record_receipt(db, request, row.id, node.name)
             db.commit()
         except Exception:
             db.rollback()

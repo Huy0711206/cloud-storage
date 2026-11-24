@@ -5,7 +5,7 @@ import {Notice,bytes} from "@/shared/ui"
 import type {Plan} from "@/shared/types"
 
 interface PlanBenefits {code:string;versions?:boolean;version_days:number;expiring_links:boolean;password_links:boolean;file_requests:boolean;team_space:boolean;share_stats:boolean;team_members:number}
-interface BenefitsResponse {plans:Record<string,PlanBenefits>;current:PlanBenefits|null;deployment?:{trial:boolean;storage_pool_limit_bytes:number};capacity?:{pool_limit_bytes:number;used_bytes:number;reserved_bytes:number;available_bytes:number|null;warning:string|null}|null}
+interface BenefitsResponse {plans:Record<string,PlanBenefits>;current:PlanBenefits|null;deployment?:{trial:boolean;storage_pool_limit_bytes:number}}
 const empty:PlanBenefits={code:"free",version_days:0,expiring_links:false,password_links:false,file_requests:false,team_space:false,share_stats:false,team_members:0}
 let pending:Promise<BenefitsResponse>|null=null
 export function usePlanBenefits(){
@@ -46,9 +46,3 @@ export function PlanComparison({plans,benefits}:{plans:Plan[];benefits:Record<st
 }
 
 export function PlanCapacityNotice(){const info=usePlanBenefits();return info.deployment?.trial?<Notice title="CloudBox đang trong giai đoạn thử nghiệm">Toàn hệ thống hiện dùng chung {bytes(info.deployment?.storage_pool_limit_bytes??0)} dung lượng thử nghiệm. Dung lượng ghi trên gói là hạn mức tài khoản; khả năng tải thêm còn phụ thuộc dung lượng máy chủ đang có. Hệ thống sẽ báo rõ khi không còn đủ chỗ.</Notice>:null}
-
-export function AdminStorageCapacity(){
- const {capacity}=usePlanBenefits()
- if(!capacity)return null
- return <Notice title="Ngân sách lưu trữ toàn hệ thống"><p>Đã dùng {bytes(capacity.used_bytes)} · Đang giữ chỗ {bytes(capacity.reserved_bytes)} · Còn {capacity.available_bytes===null?"chưa đặt giới hạn":bytes(capacity.available_bytes)} trong ngân sách {bytes(capacity.pool_limit_bytes)}.</p><p>{capacity.warning} Đây không phải phép đo chỗ trống ổ C:. Hãy kiểm tra dung lượng Windows trước khi tăng ngân sách.</p></Notice>
-}

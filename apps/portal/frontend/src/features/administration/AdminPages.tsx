@@ -70,7 +70,8 @@ import {
 import { EmptyState, Form, PageHeading, StatusBadge, date, money, quota } from "@/shared/ui"
 import type { Order, PageData, Plan, User } from "@/shared/types"
 
-import {AdminStorageCapacity} from "@/features/billing/benefits"
+import { AdminStorageCapacity } from "./AdminStorageCapacity"
+import { AuditLogPage } from "./AuditLogPage"
 
 const termChoices = [1, 3, 12]
 
@@ -78,6 +79,7 @@ export function AdminPage({ data }: { data: PageData }) {
   if (data.page === "admin_users") return <UsersPage data={data} />
   if (data.page === "admin_orders") return <OrdersPage data={data} />
   if (data.page === "admin_plans") return <PlansPage data={data} />
+  if (data.page === "admin_audit") return <AuditLogPage audit={data.audit} />
   return <OverviewPage data={data} />
 }
 
@@ -128,7 +130,7 @@ function OverviewPage({ data }: { data: PageData }) {
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard title="Người dùng" value={data.stats.users} description={`${data.stats.verified} tài khoản đã xác thực`} icon={Users} />
         <MetricCard title="Doanh thu" value={money(data.stats.revenue)} description="Từ các đơn đã thanh toán" icon={Wallet} />
-        <MetricCard title="Gói trả phí" value={data.stats.paid_users} description="Tài khoản có thời hạn gói" icon={HardDrive} />
+        <MetricCard title="Đang dùng gói trả phí" value={data.stats.paid_users} description="Gói còn hiệu lực" icon={HardDrive} />
         <MetricCard title="Đã thanh toán" value={data.stats.orders_paid} description="Tổng đơn thanh toán thành công" icon={CreditCard} />
       </div>
 

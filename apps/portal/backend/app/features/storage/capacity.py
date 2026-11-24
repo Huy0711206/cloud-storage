@@ -7,6 +7,9 @@ from .native_models import FileNode, UploadSession
 from .migration_models import FileVersion
 
 
+MIN_FREE_BYTES = 1024**3
+
+
 def pool_limit():
     return max(0, int(os.environ.get("STORAGE_POOL_LIMIT_BYTES", "0")))
 
@@ -35,5 +38,5 @@ def ensure_storage_capacity(db, new_bytes):
     # df inside Docker cannot measure Windows host capacity; the explicit pool limit
     # is the host budget. This additional check protects the guest filesystem too.
     remaining = int(db.query(func.coalesce(func.sum(UploadSession.size-UploadSession.received), 0)).filter(UploadSession.state == "pending", UploadSession.expires_at > utcnow()).scalar())
-    if shutil.disk_usage(root).free < new_bytes + remaining + 1024**3:
+    if shutil.disk_usage(root).free < new_bytes + remaining + MIN_FREE_BYTES:
         raise StorageError(507, "Ổ lưu trữ máy chủ gần đầy. Tạm dừng tải thêm để bảo vệ dữ liệu hiện có.")

@@ -65,6 +65,8 @@ Kết quả kiểm tra ứng dụng cần là `{"status":"ok"}`. Nếu Docker ch
 
 Các lệnh PowerShell/Bash đầy đủ, theo đúng thứ tự: **[Triển khai và vận hành AWS](docs/operations/AWS-ACADEMY.md)**. Nếu bản mới thay schema/database, cần kế hoạch migration riêng trước khi triển khai.
 
+Nếu bạn cập nhật CloudBox thường xuyên, dùng [lệnh phát hành từ laptop](docs/operations/AWS-ACADEMY.md#lệnh-phát-hành-từ-laptop). Lệnh chạy kiểm tra, đóng gói, thử bản mới trên trình duyệt và cập nhật riêng Portal. Dùng tham số `-PrepareOnly` khi chỉ cần kiểm tra trên laptop.
+
 ## 5. Cấu hình và dữ liệu đang ở đâu?
 
 | Thành phần | Vị trí hiện hành |
@@ -85,6 +87,9 @@ Giữ nguyên dữ liệu nguồn. AWS đã nhận thay đổi mới nên không
 
 - Đăng ký bằng Gmail thật, xác minh mã 6 số, đăng nhập và khôi phục mật khẩu trong cùng CloudBox.
 - Tệp/thư mục, tải lên/tải xuống, chia sẻ, thùng rác, phiên bản và không gian nhóm theo gói.
+- Trong kho cá nhân, bấm ngôi sao để thêm tệp hoặc thư mục vào **Đã đánh dấu**. Lọc kết quả theo loại, ngày sửa và kích thước. Bấm đường dẫn dưới tên để mở thư mục chứa tệp.
+- Trong kho nhóm, bấm tên tệp để xem ảnh, PDF hoặc văn bản được hỗ trợ. **Hoạt động nhóm** ghi lại các thay đổi tệp từ lúc tính năng được cài.
+- Biểu tượng chuông báo lời mời nhóm, tệp mới gửi qua liên kết nhận tệp và gói trả phí còn tối đa 7 ngày.
 - Gói dịch vụ, đơn hàng và xử lý thanh toán.
 
 | Gói | Quota tài khoản | Giá tháng |

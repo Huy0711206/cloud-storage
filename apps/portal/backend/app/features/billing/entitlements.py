@@ -8,11 +8,11 @@ BENEFITS = {
     "premium": dict(version_days=180, expiring_links=True, password_links=True, file_requests=True, team_space=True, share_stats=True, team_members=5),
 }
 
-def effective_plan(user):
+def effective_plan(user, *, at=None):
     plan = user.plan
     if not plan:
         return None
-    if plan.price_vnd > 0 and user.plan_expires_at is not None and user.plan_expires_at <= utcnow():
+    if plan.price_vnd > 0 and user.plan_expires_at is not None and user.plan_expires_at <= (at or utcnow()):
         return None
     return plan
 

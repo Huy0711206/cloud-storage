@@ -2,7 +2,8 @@
 from sqlalchemy.orm import Session
 from app.core.models import User
 
-def sync_quota(db: Session, user: User) -> bool:
+def sync_quota(db: Session, user: User, *, commit: bool = True) -> bool:
     user.quota_synced = True
-    db.commit()
+    if commit:
+        db.commit()
     return True

@@ -41,12 +41,11 @@ def activate_plan(db: Session, user: User, plan: Plan, months: int, *, commit: b
         db.commit()
 
 
-def set_free(db: Session, user: User) -> None:
+def set_free(db: Session, user: User, *, commit: bool = True) -> None:
     user.plan_id = free_plan(db).id
     user.plan_expires_at = None
     user.quota_synced = False
-    db.commit()
-    sync_quota(db, user)
+    sync_quota(db, user, commit=commit)
 
 
 def run_maintenance(db: Session) -> int:

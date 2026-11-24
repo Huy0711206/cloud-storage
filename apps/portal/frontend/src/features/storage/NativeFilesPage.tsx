@@ -1,5 +1,5 @@
 import {useCallback,useEffect,useRef,useState,type FormEvent} from "react"
-import {ArrowLeft,Check,ChevronRight,Copy,Download,File,Folder,FolderPlus,FolderUp,Info,Link2,Loader2,MoreHorizontal,Pencil,RefreshCw,Search,Share2,Trash2,Undo2,Upload,X} from "lucide-react"
+import {ArrowLeft,Check,ChevronRight,Copy,Download,Eye,File,Folder,FolderPlus,FolderUp,Info,Link2,Loader2,MoreHorizontal,Pencil,RefreshCw,Search,Share2,Star,Trash2,Undo2,Upload,X} from "lucide-react"
 import {Button} from "@/components/ui/button"
 import {Input} from "@/components/ui/input"
 import {Field,FieldGroup,FieldLabel} from "@/components/ui/field"
@@ -12,19 +12,33 @@ import {EmptyState,Notice,PageHeading,bytes,date} from "@/shared/ui"
 import type {PageData} from "@/shared/types"
 import {usePlanBenefits} from "@/features/billing/benefits"
 import {storageApi,jsonBody,publishUsage,type CreatedShare,type FileItem,type FileList,type ShareItem,type StorageUsage} from "./api"
+import {canOfferFilePreview,FilePreviewDialog} from "./FilePreviewDialog"
+import {isTransientUploadError,transferPersonalUpload} from "./uploadRetry"
 
-type Mode="storage"|"shared"|"trash"
-type Action="new"|"rename"|"move"|"share"|"details"|"trash"|"purge"|"replace"|"version_restore"
+type Mode="storage"|"favorites"|"shared"|"trash"
+const emptyFilters={kind:"all",modifiedDays:"",minSize:""}
+
+function folderFromHash() {
+  const [section, params] = window.location.hash.slice(1).split("?", 2)
+  const folder = section==="storage" ? new URLSearchParams(params).get("folder") : null
+  return folder && /^[0-9a-f]{32}$/.test(folder) ? folder : null
+}
+type Action="new"|"rename"|"move"|"share"|"details"|"trash"|"purge"|"replace"|"version_restore"|"batch-move"|"batch-trash"
+type BatchResult={id:string;status:"applied"|"covered"|"failed";message?:string}
+type BatchFailure={id:string;name:string;message:string}
 type VersionItem={id:string;name:string;size:number;created_at:string;available:boolean;restorable?:boolean;source?:string;expires_at?:string|null}
 type UploadState={name:string;percent:number;index:number;count:number}
+type PreviewSelection={file:FileItem;triggerId:string}
 const when=(value:string)=>new Intl.DateTimeFormat("vi-VN",{dateStyle:"short",timeStyle:"short"}).format(new Date(value))
 const message=(error:unknown)=>error instanceof Error?error.message:"Chưa thể hoàn tất thao tác. Hãy thử lại."
+const batchLimit=500
 
 export function NativeFilesPage({data:_data,mode="storage"}:{data:PageData;mode?:Mode}) {
   const {current:benefits}=usePlanBenefits()
   const [shareExpiry,setShareExpiry]=useState(""),[sharePassword,setSharePassword]=useState("")
   const [replacement,setReplacement]=useState<File|null>(null),[restoreVersion,setRestoreVersion]=useState<VersionItem|null>(null)
-  const [parent,setParent]=useState<string|null>(null),[query,setQuery]=useState(""),[term,setTerm]=useState(""),[sort,setSort]=useState("name")
+  const [parent,setParent]=useState<string|null>(folderFromHash),[query,setQuery]=useState(""),[term,setTerm]=useState(""),[sort,setSort]=useState("name")
+  const [filters,setFilters]=useState(emptyFilters)
   const [listing,setListing]=useState<FileList|null>(null),[shares,setShares]=useState<ShareItem[]>([]),[loading,setLoading]=useState(true),[loadingMore,setLoadingMore]=useState(false)
   const [error,setError]=useState(""),[notice,setNotice]=useState(""),[busy,setBusy]=useState(false),[upload,setUpload]=useState<UploadState|null>(null)
   const [dialog,setDialog]=useState<Action|null>(null),[selected,setSelected]=useState<FileItem|null>(null),[name,setName]=useState("")
@@ -32,13 +46,46 @@ export function NativeFilesPage({data:_data,mode="storage"}:{data:PageData;mode?
   const [copied,setCopied]=useState(false),[sharesLoading,setSharesLoading]=useState(false),[versions,setVersions]=useState<VersionItem[]>([]),[versionsLoading,setVersionsLoading]=useState(false)
   const [moveParent,setMoveParent]=useState<string|null>(null),[moveList,setMoveList]=useState<FileList|null>(null),[moveLoadingMore,setMoveLoadingMore]=useState(false)
   const [dragging,setDragging]=useState(false)
+  const [preview,setPreview]=useState<PreviewSelection|null>(null)
+  const [batchSelection,setBatchSelection]=useState<Map<string,FileItem>>(()=>new Map())
+  const [batchFailures,setBatchFailures]=useState<BatchFailure[]>([])
   const fileInput=useRef<HTMLInputElement>(null),folderInput=useRef<HTMLInputElement>(null),uploadControl=useRef<AbortController|null>(null),loadSequence=useRef(0)
   const moveSequence=useRef(0),detailSequence=useRef(0)
   const latestRefresh=useRef<()=>Promise<void>>(async()=>{})
-  const writable=mode==="storage",trash=mode==="trash"
-  const title=trash?"Thùng rác":mode==="shared"?"Đã chia sẻ":"Tệp của tôi"
+  const writable=mode==="storage",trash=mode==="trash",favorites=mode==="favorites"
+  const browsable=writable||favorites
+  const filtered=filters.kind!=="all"||Boolean(filters.modifiedDays||filters.minSize)
+  const title=favorites?"Đã đánh dấu":trash?"Thùng rác":mode==="shared"?"Đã chia sẻ":"Tệp của tôi"
+  const batchMoving=dialog==="batch-move"
+  const moveTargets=moveList?.items.filter(item=>item.is_folder&&
+    (batchMoving?!batchSelection.has(item.id):item.id!==selected?.id))
   useEffect(()=>{const timer=window.setTimeout(()=>setTerm(query.trim()),250);return()=>window.clearTimeout(timer)},[query])
-  useEffect(()=>{setParent(null);setQuery("");setTerm("");setError("");setNotice("")},[mode])
+  useEffect(()=>{
+    setParent(mode==="storage"?folderFromHash():null)
+    setQuery("");setTerm("");setFilters(emptyFilters);setError("");setNotice("")
+  },[mode])
+  useEffect(()=>{
+    if (mode!=="storage") return
+    function openLinkedFolder() {
+      if (window.location.hash.startsWith("#storage?")) setParent(folderFromHash())
+    }
+    window.addEventListener("hashchange",openLinkedFolder)
+    return ()=>window.removeEventListener("hashchange",openLinkedFolder)
+  },[mode])
+  useEffect(()=>{setBatchSelection(new Map());setBatchFailures([]);setPreview(null)},[mode,parent,term,filters])
+
+  const listingParams=useCallback((offset=0)=>{
+    const params=new URLSearchParams({sort,trash:String(trash),offset:String(offset)})
+    if(parent!==null)params.set("parent",parent)
+    if(term)params.set("q",term)
+    if(favorites)params.set("favorites","true")
+    if(browsable&&filtered){
+      params.set("kind",filters.kind)
+      if(filters.modifiedDays)params.set("modified_days",filters.modifiedDays)
+      if(filters.minSize)params.set("min_size",String(Number(filters.minSize)*1024**2))
+    }
+    return params
+  },[sort,trash,parent,term,favorites,browsable,filtered,filters])
 
   const refresh=useCallback(async()=>{
     const sequence=++loadSequence.current
@@ -48,24 +95,19 @@ export function NativeFilesPage({data:_data,mode="storage"}:{data:PageData;mode?
         const result=await storageApi<{items:ShareItem[]}>("/api/shares")
         if(sequence===loadSequence.current)setShares(result.items.filter(item=>!item.revoked))
       } else {
-        const params=new URLSearchParams({sort,trash:String(trash)})
-        if(parent!==null)params.set("parent",String(parent))
-        if(term)params.set("q",term)
-        const result=await storageApi<FileList>("/api/files?"+params)
+        const result=await storageApi<FileList>("/api/files?"+listingParams())
         if(sequence===loadSequence.current){setListing(result);publishUsage(result.usage)}
       }
       if(sequence===loadSequence.current)setError("")
     }catch(cause){if(sequence===loadSequence.current)setError(message(cause))}
     finally{if(sequence===loadSequence.current)setLoading(false)}
-  },[mode,parent,term,sort,trash])
+  },[mode,listingParams])
   latestRefresh.current=refresh
   async function loadMore() {
     if(!listing?.has_more||listing.next_offset==null||loadingMore)return
     setLoadingMore(true)
     const sequence=loadSequence.current
-    const params=new URLSearchParams({sort,trash:String(trash),offset:String(listing.next_offset)})
-    if(parent!==null)params.set("parent",parent)
-    if(term)params.set("q",term)
+    const params=listingParams(listing.next_offset)
     try{const next=await storageApi<FileList>("/api/files?"+params);if(sequence===loadSequence.current)setListing(current=>({...next,items:[...(current?.items??[]),...next.items]}))}catch(cause){setError(message(cause))}finally{setLoadingMore(false)}
   }
   useEffect(()=>{void refresh();return()=>{loadSequence.current++}},[refresh])
@@ -85,7 +127,7 @@ export function NativeFilesPage({data:_data,mode="storage"}:{data:PageData;mode?
       setVersions([])
       if(item&&!item.is_folder&&!item.deleted_at){setVersionsLoading(true);storageApi<{items:VersionItem[]}>(`/api/files/${item.id}/versions`).then(result=>{if(detail===detailSequence.current)setVersions(result.items)}).catch(cause=>{if(detail===detailSequence.current)setDialogError(message(cause))}).finally(()=>{if(detail===detailSequence.current)setVersionsLoading(false)})}
     }
-    if(action==="move"){setMoveParent(null);setMoveList(null);void loadMove(null)}
+    if(action==="move"||action==="batch-move"){setMoveParent(null);setMoveList(null);void loadMove(null)}
   }
   async function loadMove(id:string|null) {
     const sequence=++moveSequence.current
@@ -105,6 +147,41 @@ export function NativeFilesPage({data:_data,mode="storage"}:{data:PageData;mode?
     finally{setBusy(false)}
   }
   async function updateUsage(){try{const usage=await storageApi<StorageUsage>("/api/storage/usage");publishUsage(usage)}catch{/* The next listing refresh also updates usage. */}}
+
+  function toggleBatchItem(item:FileItem) {
+    setBatchSelection(current=>{
+      const next=new Map(current)
+      if(!next.delete(item.id)&&next.size<batchLimit)next.set(item.id,item)
+      return next
+    })
+  }
+
+  async function submitBatch(action:"move"|"trash") {
+    if(!batchSelection.size||busy)return
+    const selection=batchSelection
+    setBusy(true);setDialogError("");setNotice("");setBatchFailures([])
+    try {
+      const result=await storageApi<{items:BatchResult[]}>("/api/files/batch",{
+        method:"POST",
+        body:jsonBody({action,ids:[...selection.keys()],parent_id:action==="move"?moveParent:null}),
+      })
+      const failed=result.items.filter(item=>item.status==="failed")
+      setBatchSelection(new Map(failed.map(({id})=>[id,selection.get(id)!])))
+      setBatchFailures(failed.map(({id,message:reason})=>({
+        id,name:selection.get(id)!.name,message:reason??"Hãy kiểm tra và thử lại.",
+      })))
+      const succeeded=selection.size-failed.length
+      if(succeeded)setNotice(action==="move"?`Đã di chuyển ${succeeded} mục.`:`Đã chuyển ${succeeded} mục vào thùng rác.`)
+      closeDialog()
+      await latestRefresh.current()
+      await updateUsage()
+    } catch(cause) {
+      setDialogError(message(cause))
+    } finally {
+      setBusy(false)
+    }
+  }
+
   function submitName(event:FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if(!name.trim())return
@@ -129,7 +206,7 @@ export function NativeFilesPage({data:_data,mode="storage"}:{data:PageData;mode?
     if(!files.length||uploadControl.current||upload||!writable)return
     const controller=new AbortController();uploadControl.current=controller
     setError("");setNotice("")
-    let activeId:string|number|null=null,completed=0,uploadError=""
+    let activeId:string|number|null=null,completed=0,uploadError="",keepPending=false
     const createdFolders=new Map<string,string|null>([["",parent]])
     try {
       for(let index=0;index<files.length;index++) {
@@ -151,21 +228,26 @@ export function NativeFilesPage({data:_data,mode="storage"}:{data:PageData;mode?
         }
         const session=await storageApi<{id:string|number;chunk_size:number;received:number}>("/api/uploads",{method:"POST",body:jsonBody({name:replaceItem?.name??file.name,parent_id:destination,size:file.size,...(replaceItem?{replace_node_id:replaceItem.id}:{})}),signal:controller.signal})
         activeId=session.id
-        let offset=session.received
-        const chunkSize=Math.min(session.chunk_size,8*1024*1024)
-        while(offset<file.size) {
-          const chunk=file.slice(offset,Math.min(offset+chunkSize,file.size))
-          const result=await storageApi<{received:number}>(`/api/uploads/${session.id}`,{method:"PUT",body:chunk,headers:{"Content-Type":"application/octet-stream","Upload-Offset":String(offset)},signal:controller.signal})
-          if(result.received<=offset||result.received>file.size)throw new Error("Tiến trình tải lên không khớp. Hãy tải lại tệp.")
-          offset=result.received
-          setUpload({name:file.name,percent:Math.round(offset/Math.max(1,file.size)*100),index:index+1,count:files.length})
-        }
-        await storageApi(`/api/uploads/${session.id}/complete`,{method:"POST",signal:controller.signal});activeId=null;completed++
+        await transferPersonalUpload(file,session,{
+          signal:controller.signal,
+          request:storageApi,
+          onProgress:percent=>setUpload({name:file.name,percent,index:index+1,count:files.length}),
+        })
+        activeId=null
+        completed++
       }
       setNotice(replaceItem?"Đã cập nhật tệp và lưu phiên bản trước.":`Đã tải lên ${completed} tệp.`)
-    }catch(cause){uploadError=controller.signal.aborted?`Đã dừng tải lên. ${completed?`${completed} tệp đã hoàn tất được giữ lại.`:"Bạn có thể chọn tệp để tải lại."}`:message(cause);setError(uploadError)}
+    }catch(cause){
+      keepPending=activeId!==null&&!controller.signal.aborted&&isTransientUploadError(cause)
+      uploadError=controller.signal.aborted
+        ? `Đã dừng tải lên. ${completed?`${completed} tệp đã hoàn tất được giữ lại.`:"Bạn có thể chọn tệp để tải lại."}`
+        : keepPending
+          ? "Kết nối vẫn gián đoạn sau khi thử lại. CloudBox giữ phiên tải đến khi hết hạn. Hãy kiểm tra danh sách tệp khi có mạng trước khi tải lại."
+          : message(cause)
+      setError(uploadError)
+    }
     finally {
-      if(activeId!==null)await storageApi(`/api/uploads/${activeId}`,{method:"DELETE"}).catch(()=>{})
+      if(activeId!==null&&!keepPending)await storageApi(`/api/uploads/${activeId}`,{method:"DELETE"}).catch(()=>{})
       uploadControl.current=null;setUpload(null)
       if(fileInput.current)fileInput.current.value=""
       if(folderInput.current)folderInput.current.value=""
@@ -173,7 +255,38 @@ export function NativeFilesPage({data:_data,mode="storage"}:{data:PageData;mode?
       if(uploadError)setError(uploadError)
     }
   }
-  const actions=(item:FileItem)=><DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" size="icon" aria-label={`Thao tác với ${item.name}`} disabled={busy}><MoreHorizontal aria-hidden/></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuGroup>
+  function openFolder(id:string|null) {
+    if(favorites){
+      window.location.hash=id?"storage?folder="+id:"storage"
+      return
+    }
+    setParent(id);setQuery("");setTerm("");setFilters(emptyFilters)
+  }
+
+  async function toggleFavorite(item:FileItem) {
+    setBusy(true)
+    try {
+      await storageApi("/api/files/"+item.id+"/favorite",{method:item.starred?"DELETE":"PUT"})
+      await latestRefresh.current()
+    } catch(cause) {
+      setError(message(cause))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  function openFile(item:FileItem,triggerId:string) {
+    if(browsable&&item.is_folder){
+      openFolder(item.id)
+    }else if(browsable&&canOfferFilePreview(item)){
+      setPreview({file:item,triggerId})
+    }else{
+      open("details",item)
+    }
+  }
+
+  const actions=(item:FileItem)=><DropdownMenu><DropdownMenuTrigger asChild><Button id={`file-actions-${item.id}`} variant="ghost" size="icon" aria-label={`Thao tác với ${item.name}`} disabled={busy}><MoreHorizontal aria-hidden/></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuGroup>
+    {!trash&&canOfferFilePreview(item)&&<DropdownMenuItem onSelect={()=>setPreview({file:item,triggerId:`file-actions-${item.id}`})}><Eye aria-hidden/>Xem trước</DropdownMenuItem>}
     {!trash&&!item.is_folder&&<DropdownMenuItem asChild><a href={`/api/files/${item.id}/download`}><Download aria-hidden/>Tải xuống</a></DropdownMenuItem>}
     {!trash&&!item.is_folder&&benefits?.version_days? <DropdownMenuItem onSelect={()=>open("replace",item)}><Upload aria-hidden/>Tải phiên bản mới</DropdownMenuItem>:null}
     {trash?<DropdownMenuItem onSelect={()=>void mutate(`/api/files/${item.id}/restore`,{method:"POST"},"Đã khôi phục tệp hoặc thư mục.")}><Undo2 aria-hidden/>Khôi phục</DropdownMenuItem>:<><DropdownMenuItem onSelect={()=>open("rename",item)}><Pencil aria-hidden/>Đổi tên</DropdownMenuItem><DropdownMenuItem onSelect={()=>open("move",item)}><FolderUp aria-hidden/>Di chuyển</DropdownMenuItem><DropdownMenuItem onSelect={()=>open("share",item)}><Share2 aria-hidden/>Chia sẻ</DropdownMenuItem></>}
@@ -182,23 +295,116 @@ export function NativeFilesPage({data:_data,mode="storage"}:{data:PageData;mode?
   </DropdownMenuGroup></DropdownMenuContent></DropdownMenu>
 
   return <section className="native-files" aria-label={title}>
-    <PageHeading title={title} description={trash?"Khôi phục những tệp và thư mục đã xóa.":mode==="shared"?"Quản lý các liên kết bạn đã chia sẻ.":"Sắp xếp, lưu trữ và chia sẻ ngay trong CloudBox."} action={writable?<div className="files-primary-actions"><Button variant="outline" onClick={()=>open("new")} disabled={!!upload}><FolderPlus data-icon="inline-start" aria-hidden/>Thư mục mới</Button><Button onClick={()=>fileInput.current?.click()} disabled={!!upload}><Upload data-icon="inline-start" aria-hidden/>Tải tệp lên</Button></div>:undefined}/>
+    <PageHeading title={title} description={trash?"Khôi phục những tệp và thư mục đã xóa.":mode==="shared"?"Quản lý các liên kết bạn đã chia sẻ.":favorites?"Mở nhanh tệp và thư mục quan trọng.":"Sắp xếp, lưu trữ và chia sẻ ngay trong CloudBox."} action={writable?<div className="files-primary-actions"><Button variant="outline" onClick={()=>open("new")} disabled={!!upload}><FolderPlus data-icon="inline-start" aria-hidden/>Thư mục mới</Button><Button onClick={()=>fileInput.current?.click()} disabled={!!upload}><Upload data-icon="inline-start" aria-hidden/>Tải tệp lên</Button></div>:undefined}/>
     <input ref={fileInput} type="file" multiple className="sr-only" tabIndex={-1} aria-label="Chọn tệp tải lên" onChange={event=>void uploadFiles(Array.from(event.target.files??[]))}/>
     <input ref={element=>{folderInput.current=element;if(element)element.setAttribute("webkitdirectory","")}} type="file" multiple className="sr-only" tabIndex={-1} aria-label="Chọn thư mục tải lên" onChange={event=>void uploadFiles(Array.from(event.target.files??[]))}/>
     {error&&<Notice kind="error" title="Cần kiểm tra lại">{error}</Notice>}{notice&&<Notice kind="ok" title={notice}/>}
+    {writable&&batchFailures.length>0&&<Notice kind="error" title={`${batchFailures.length} mục chưa xử lý được`}>
+      <ul className="max-h-40 list-disc space-y-1 overflow-y-auto ps-5">
+        {batchFailures.map(failure=><li key={failure.id}><strong>{failure.name}</strong> · {failure.message}</li>)}
+      </ul>
+    </Notice>}
     {upload&&<div className="files-upload-status" role="status" aria-live="polite"><div><Upload aria-hidden/><strong>Đang tải {upload.name}</strong><span>{upload.index}/{upload.count} tệp · {upload.percent}%</span><Button variant="ghost" size="icon" aria-label="Dừng tải lên" onClick={()=>uploadControl.current?.abort()}><X aria-hidden/></Button></div><Progress value={upload.percent} aria-label={`Đang tải ${upload.name}: ${upload.percent}%`}/></div>}
     {trash&&<p className="files-policy">Tệp trong thùng rác vẫn được tính vào dung lượng. Xóa vĩnh viễn để giải phóng dung lượng; thao tác này không thể hoàn tác.</p>}
-    {mode!=="shared"&&<div className="files-toolbar"><nav className="files-breadcrumb" aria-label="Đường dẫn thư mục"><Button variant="ghost" size="sm" onClick={()=>{setParent(null);setQuery("")}}><Folder data-icon="inline-start" aria-hidden/>{trash?"Thùng rác":"Tệp của tôi"}</Button>{listing?.ancestors.map(part=><span key={part.id}><ChevronRight aria-hidden/><Button variant="ghost" size="sm" onClick={()=>{setParent(part.id);setQuery("")}}>{part.name}</Button></span>)}</nav><div className="files-tools"><div className="files-search"><Search aria-hidden/><Input type="search" aria-label="Tìm tệp hoặc thư mục" placeholder="Tìm tệp hoặc thư mục" value={query} onChange={event=>setQuery(event.target.value)}/></div><label className="sr-only" htmlFor="file-sort">Sắp xếp tệp</label><select id="file-sort" className="files-sort" value={sort} onChange={event=>setSort(event.target.value)}><option value="name">Tên A–Z</option><option value="name_desc">Tên Z–A</option><option value="modified">Mới sửa đổi</option><option value="size">Kích thước</option></select><Button variant="ghost" size="icon" onClick={()=>void refresh()} aria-label="Cập nhật danh sách" disabled={loading}><RefreshCw aria-hidden/></Button></div></div>}
+    {mode!=="shared"&&<div className="files-toolbar"><nav className="files-breadcrumb" aria-label="Đường dẫn thư mục"><Button variant="ghost" size="sm" onClick={()=>openFolder(null)}><Folder data-icon="inline-start" aria-hidden/>{trash?"Thùng rác":"Tệp của tôi"}</Button>{listing?.ancestors.map(part=><span key={part.id}><ChevronRight aria-hidden/><Button variant="ghost" size="sm" onClick={()=>openFolder(part.id)}>{part.name}</Button></span>)}</nav><div className="files-tools"><div className="files-search"><Search aria-hidden/><Input type="search" aria-label="Tìm tệp hoặc thư mục" placeholder="Tìm tệp hoặc thư mục" value={query} onChange={event=>setQuery(event.target.value)}/></div><label className="sr-only" htmlFor="file-sort">Sắp xếp tệp</label><select id="file-sort" className="files-sort" value={sort} onChange={event=>setSort(event.target.value)}><option value="name">Tên A–Z</option><option value="name_desc">Tên Z–A</option><option value="modified">Mới sửa đổi</option><option value="size">Kích thước</option></select><Button variant="ghost" size="icon" onClick={()=>void refresh()} aria-label="Cập nhật danh sách" disabled={loading}><RefreshCw aria-hidden/></Button></div></div>}
+    {browsable&&<div className="files-tools mb-3">
+      <select className="files-sort" aria-label="Loại tệp" value={filters.kind} onChange={event=>setFilters({...filters,kind:event.target.value})}>
+        <option value="all">Mọi loại tệp</option><option value="folder">Thư mục</option><option value="image">Hình ảnh</option>
+        <option value="pdf">PDF</option><option value="document">Văn bản</option><option value="video">Video</option><option value="audio">Âm thanh</option>
+      </select>
+      <select className="files-sort" aria-label="Thời gian sửa đổi" value={filters.modifiedDays} onChange={event=>setFilters({...filters,modifiedDays:event.target.value})}>
+        <option value="">Mọi thời điểm</option><option value="7">7 ngày qua</option><option value="30">30 ngày qua</option><option value="90">90 ngày qua</option>
+      </select>
+      <select className="files-sort" aria-label="Kích thước tối thiểu" value={filters.minSize} onChange={event=>setFilters({...filters,minSize:event.target.value})}>
+        <option value="">Mọi kích thước</option><option value="1">Từ 1 MB</option><option value="10">Từ 10 MB</option><option value="100">Từ 100 MB</option>
+      </select>
+      {(term||filtered)&&<Button variant="ghost" size="sm" onClick={()=>{setQuery("");setTerm("");setFilters(emptyFilters)}}>Xóa bộ lọc</Button>}
+    </div>}
     {writable&&<div className="files-upload-folder"><Button variant="ghost" size="sm" disabled={!!upload} onClick={()=>folderInput.current?.click()}><FolderUp data-icon="inline-start" aria-hidden/>Tải thư mục lên</Button><span>{listing?.usage?`${bytes(listing.usage.used)} / ${bytes(listing.usage.total)}`:""}</span></div>}
+    {writable&&batchSelection.size>0&&<div className="mb-3 flex flex-wrap items-center gap-2 rounded-lg border bg-card p-2">
+      <span className="px-2 font-medium" role="status">
+        Đã chọn {batchSelection.size} mục{batchSelection.size===batchLimit&&" (tối đa)"}
+      </span>
+      <Button variant="outline" size="sm" disabled={busy||!!upload} onClick={()=>open("batch-move")}><FolderUp data-icon="inline-start" aria-hidden/>Di chuyển</Button>
+      <Button variant="outline" size="sm" disabled={busy||!!upload} onClick={()=>open("batch-trash")}><Trash2 data-icon="inline-start" aria-hidden/>Chuyển vào thùng rác</Button>
+      <Button variant="ghost" size="sm" disabled={busy} onClick={()=>{setBatchSelection(new Map());setBatchFailures([])}}>Bỏ chọn</Button>
+    </div>}
     <div className="files-surface" data-dragging={dragging||undefined} onDragOver={event=>{if(writable&&!upload){event.preventDefault();setDragging(true)}}} onDragLeave={event=>{if(!event.currentTarget.contains(event.relatedTarget as Node))setDragging(false)}} onDrop={event=>{event.preventDefault();setDragging(false);if(writable&&!upload)void uploadFiles(Array.from(event.dataTransfer.files))}}>
       {dragging&&<div className="files-drop-overlay"><Upload aria-hidden/><strong>Thả tệp để tải lên thư mục này</strong></div>}
-      {loading?<div className="files-loading" role="status"><span className="sr-only">Đang tải danh sách…</span>{[0,1,2,3].map(key=><Skeleton key={key} className="h-14 w-full"/>)}</div>:error&&((mode==="shared"&&shares.length===0)||(mode!=="shared"&&!listing))?<EmptyState title="Chưa tải được danh sách" description="Kiểm tra kết nối rồi thử cập nhật lại."><Button variant="outline" onClick={()=>void refresh()}><RefreshCw data-icon="inline-start" aria-hidden/>Thử lại</Button></EmptyState>:mode==="shared"?<SharedList shares={shares} busy={busy} revoke={id=>void revokeShare(id)}/>:listing?.items.length?<Table><TableHeader><TableRow><TableHead>Tên</TableHead><TableHead className="files-date-column">{trash?"Ngày xóa":"Sửa đổi"}</TableHead><TableHead className="files-size-column">Kích thước</TableHead><TableHead><span className="sr-only">Thao tác</span></TableHead></TableRow></TableHeader><TableBody>{listing.items.map(item=><TableRow key={item.id}><TableCell><button className="file-name" onClick={()=>item.is_folder&&!trash?(setParent(item.id),setQuery("")):open("details",item)}>{item.is_folder?<Folder aria-hidden/>:<File aria-hidden/>}<span>{item.name}</span></button></TableCell><TableCell className="files-date-column">{date(trash?item.deleted_at:item.modified_at)}</TableCell><TableCell className="files-size-column">{item.is_folder?"—":bytes(item.size)}</TableCell><TableCell className="files-row-actions">{actions(item)}</TableCell></TableRow>)}</TableBody></Table>:<EmptyState title={term?"Chưa tìm thấy tệp phù hợp":trash?"Thùng rác đang trống":"Thư mục đang trống"} description={term?"Thử tên khác hoặc xóa nội dung tìm kiếm.":trash?"Các tệp bạn chuyển vào thùng rác sẽ xuất hiện ở đây.":"Tải tệp đầu tiên lên hoặc tạo thư mục để bắt đầu."}>{writable&&!term&&<Button onClick={()=>fileInput.current?.click()} disabled={!!upload}><Upload data-icon="inline-start" aria-hidden/>Tải tệp lên</Button>}</EmptyState>}
+      {loading?<div className="files-loading" role="status"><span className="sr-only">Đang tải danh sách…</span>{[0,1,2,3].map(key=><Skeleton key={key} className="h-14 w-full"/>)}</div>:error&&((mode==="shared"&&shares.length===0)||(mode!=="shared"&&!listing))?<EmptyState title="Chưa tải được danh sách" description="Kiểm tra kết nối rồi thử cập nhật lại."><Button variant="outline" onClick={()=>void refresh()}><RefreshCw data-icon="inline-start" aria-hidden/>Thử lại</Button></EmptyState>:mode==="shared"?<SharedList shares={shares} busy={busy} revoke={id=>void revokeShare(id)}/>:listing?.items.length?(
+        <Table>
+          <TableHeader><TableRow>
+            {writable&&<TableHead className="files-select-column"><span className="sr-only">Chọn mục</span></TableHead>}
+            <TableHead>Tên</TableHead>
+            <TableHead className="files-date-column">{trash?"Ngày xóa":"Sửa đổi"}</TableHead>
+            <TableHead className="files-size-column">Kích thước</TableHead>
+            <TableHead><span className="sr-only">Thao tác</span></TableHead>
+          </TableRow></TableHeader>
+          <TableBody>{listing.items.map(item=><TableRow key={item.id} data-state={batchSelection.has(item.id)?"selected":undefined}>
+            {writable&&<TableCell className="files-select-column">
+              <input type="checkbox"
+                className="size-4 accent-primary align-middle focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                aria-label={`Chọn ${item.name}`}
+                checked={batchSelection.has(item.id)}
+                disabled={busy||(!batchSelection.has(item.id)&&batchSelection.size>=batchLimit)}
+                onChange={()=>toggleBatchItem(item)}
+              />
+            </TableCell>}
+            <TableCell className="files-name-column">
+              <button id={`file-name-${item.id}`} className="file-name" title={item.name}
+                onClick={event=>openFile(item,event.currentTarget.id)}>
+                {item.is_folder?<Folder aria-hidden/>:<File aria-hidden/>}
+                <span>{item.name}</span>
+              </button>
+              {item.location&&<button type="button"
+                className="max-w-full truncate rounded-sm text-xs text-muted-foreground hover:text-primary focus-visible:outline-2"
+                onClick={()=>openFolder(item.parent_id)}>
+                {["Tệp của tôi",...item.location.map(folder=>folder.name)].join(" / ")}
+              </button>}
+            </TableCell>
+            <TableCell className="files-date-column">{date(trash?item.deleted_at:item.modified_at)}</TableCell>
+            <TableCell className="files-size-column">{item.is_folder?"—":bytes(item.size)}</TableCell>
+            <TableCell className="files-row-actions">
+              {browsable&&<Button variant="ghost" size="icon" disabled={busy} aria-pressed={Boolean(item.starred)}
+                aria-label={item.starred?"Bỏ đánh dấu "+item.name:"Đánh dấu "+item.name} onClick={()=>void toggleFavorite(item)}>
+                <Star aria-hidden className={item.starred?"fill-primary text-primary":undefined}/>
+              </Button>}{actions(item)}
+            </TableCell>
+          </TableRow>)}</TableBody>
+        </Table>
+      ):<EmptyState title={term||filtered?"Chưa tìm thấy tệp phù hợp":favorites?"Chưa có mục đánh dấu":trash?"Thùng rác đang trống":"Thư mục đang trống"} description={term||filtered?"Thử tên khác hoặc xóa bộ lọc.":favorites?"Bấm ngôi sao cạnh tệp hoặc thư mục trong kho để mở nhanh tại đây.":trash?"Các tệp bạn chuyển vào thùng rác sẽ xuất hiện ở đây.":"Tải tệp đầu tiên lên hoặc tạo thư mục để bắt đầu."}>{writable&&!term&&!filtered&&<Button onClick={()=>fileInput.current?.click()} disabled={!!upload}><Upload data-icon="inline-start" aria-hidden/>Tải tệp lên</Button>}</EmptyState>}
     </div>
     {mode!=="shared"&&listing&&<div className="files-pagination"><span>{listing.items.length} / {listing.total_count??listing.items.length} mục</span>{listing.has_more&&<Button variant="outline" disabled={loadingMore} onClick={()=>void loadMore()}>{loadingMore?<Loader2 data-icon="inline-start" className="animate-spin" aria-hidden/>:null}{loadingMore?"Đang tải…":"Tải thêm"}</Button>}</div>}
-    <Dialog open={dialog!==null} onOpenChange={isOpen=>{if(!isOpen&&!busy)closeDialog()}}><DialogContent><DialogHeader><DialogTitle>{dialog==="new"?"Tạo thư mục":dialog==="rename"?"Đổi tên":dialog==="move"?"Di chuyển":dialog==="share"?"Chia sẻ bằng liên kết":dialog==="trash"?"Chuyển vào thùng rác?":dialog==="purge"?"Xóa vĩnh viễn?":dialog==="replace"?"Tải phiên bản mới":dialog==="version_restore"?"Khôi phục phiên bản":"Thông tin tệp"}</DialogTitle><DialogDescription>{dialog==="share"?"Người có liên kết cần đáp ứng điều kiện bạn đặt để xem và tải xuống. Bạn có thể thu hồi bất cứ lúc nào.":selected?.name??"Sắp xếp tệp của bạn trong một thư mục mới."}</DialogDescription></DialogHeader>
+    {browsable&&preview&&<FilePreviewDialog file={preview.file} onClose={()=>setPreview(null)}
+      onRestoreFocus={()=>document.getElementById(preview.triggerId)?.focus()}/>}
+    <Dialog open={dialog!==null} onOpenChange={isOpen=>{if(!isOpen&&!busy)closeDialog()}}><DialogContent><DialogHeader><DialogTitle>{dialog==="new"?"Tạo thư mục":dialog==="rename"?"Đổi tên":dialog==="move"||batchMoving?"Di chuyển":dialog==="share"?"Chia sẻ bằng liên kết":dialog==="trash"||dialog==="batch-trash"?"Chuyển vào thùng rác?":dialog==="purge"?"Xóa vĩnh viễn?":dialog==="replace"?"Tải phiên bản mới":dialog==="version_restore"?"Khôi phục phiên bản":"Thông tin tệp"}</DialogTitle><DialogDescription>{dialog==="share"?"Người có liên kết cần đáp ứng điều kiện bạn đặt để xem và tải xuống. Bạn có thể thu hồi bất cứ lúc nào.":batchMoving||dialog==="batch-trash"?`${batchSelection.size} mục đã chọn`:selected?.name??"Sắp xếp tệp của bạn trong một thư mục mới."}</DialogDescription></DialogHeader>
       {dialogError&&<Notice kind="error" title="Chưa thể hoàn tất">{dialogError}</Notice>}
       {(dialog==="new"||dialog==="rename")&&<form onSubmit={submitName}><FieldGroup><Field><FieldLabel htmlFor="file-name">{dialog==="new"?"Tên thư mục":"Tên mới"}</FieldLabel><Input id="file-name" value={name} onChange={event=>setName(event.target.value)} maxLength={255} required autoFocus disabled={busy}/></Field></FieldGroup><DialogFooter className="mt-6"><Button type="button" variant="outline" onClick={()=>closeDialog()} disabled={busy}>Hủy</Button><Button type="submit" disabled={busy||!name.trim()}>{busy&&<Loader2 data-icon="inline-start" className="animate-spin" aria-hidden/>}{dialog==="new"?"Tạo thư mục":"Lưu tên"}</Button></DialogFooter></form>}
-      {dialog==="move"&&<><div className="files-move-picker"><nav aria-label="Thư mục đích"><Button variant="ghost" size="sm" onClick={()=>void loadMove(null)}><Folder data-icon="inline-start" aria-hidden/>Tệp của tôi</Button>{moveList?.ancestors.map(part=><Button key={part.id} variant="ghost" size="sm" onClick={()=>void loadMove(part.id)}><ChevronRight data-icon="inline-start" aria-hidden/>{part.name}</Button>)}</nav>{moveList?moveList.items.filter(item=>item.is_folder&&item.id!==selected?.id).map(item=><Button key={item.id} variant="ghost" onClick={()=>void loadMove(item.id)}><Folder data-icon="inline-start" aria-hidden/>{item.name}<ChevronRight data-icon="inline-end" aria-hidden/></Button>):<Skeleton className="h-12"/>}{moveList&&!moveList.items.some(item=>item.is_folder&&item.id!==selected?.id)&&<p>Không có thư mục con. Có thể chọn vị trí hiện tại.</p>}{moveList?.has_more&&<Button variant="outline" disabled={moveLoadingMore} onClick={()=>void moreMoveFolders()}>{moveLoadingMore?"Đang tải…":"Tải thêm thư mục"}</Button>}</div><DialogFooter><Button variant="outline" onClick={()=>closeDialog()} disabled={busy}>Hủy</Button><Button disabled={busy||!moveList||moveParent===selected?.parent_id} onClick={()=>selected&&void mutate(`/api/files/${selected.id}`,{method:"PATCH",body:jsonBody({parent_id:moveParent})},"Đã di chuyển.")}>Di chuyển đến đây</Button></DialogFooter></>}
+      {(dialog==="move"||batchMoving)&&<>
+        <div className="files-move-picker">
+          <nav aria-label="Thư mục đích">
+            <Button variant="ghost" size="sm" disabled={busy} onClick={()=>void loadMove(null)}><Folder data-icon="inline-start" aria-hidden/>Tệp của tôi</Button>
+            {moveList?.ancestors.map(part=><Button key={part.id} variant="ghost" size="sm" disabled={busy} onClick={()=>void loadMove(part.id)}><ChevronRight data-icon="inline-start" aria-hidden/>{part.name}</Button>)}
+          </nav>
+          {moveTargets?moveTargets.map(item=><Button key={item.id} variant="ghost" disabled={busy} onClick={()=>void loadMove(item.id)}><Folder data-icon="inline-start" aria-hidden/>{item.name}<ChevronRight data-icon="inline-end" aria-hidden/></Button>):<Skeleton className="h-12"/>}
+          {moveTargets?.length===0&&<p>Không có thư mục con. Có thể chọn vị trí hiện tại.</p>}
+          {moveList?.has_more&&<Button variant="outline" disabled={moveLoadingMore||busy} onClick={()=>void moreMoveFolders()}>{moveLoadingMore?"Đang tải…":"Tải thêm thư mục"}</Button>}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={closeDialog} disabled={busy}>Hủy</Button>
+          <Button disabled={busy||!moveList||(!batchMoving&&moveParent===selected?.parent_id)} onClick={()=>{
+            if(batchMoving)void submitBatch("move")
+            else if(selected)void mutate(`/api/files/${selected.id}`,{method:"PATCH",body:jsonBody({parent_id:moveParent})},"Đã di chuyển.")
+          }}>Di chuyển đến đây</Button>
+        </DialogFooter>
+      </>}
+      {dialog==="batch-trash"&&<>
+        <p>Bạn có thể khôi phục các mục từ Thùng rác. Dung lượng vẫn được tính trong hạn mức.</p>
+        <DialogFooter>
+          <Button variant="outline" disabled={busy} onClick={closeDialog}>Hủy</Button>
+          <Button disabled={busy} onClick={()=>void submitBatch("trash")}><Trash2 data-icon="inline-start" aria-hidden/>Chuyển vào thùng rác</Button>
+        </DialogFooter>
+      </>}
       {dialog==="share"&&<div className="files-share-content"><FieldGroup>{benefits?.expiring_links&&<Field><FieldLabel htmlFor="share-expiry">Hết hạn vào (giờ trên thiết bị)</FieldLabel><Input id="share-expiry" type="datetime-local" value={shareExpiry} onChange={event=>setShareExpiry(event.target.value)}/><p className="files-policy">Để trống nếu không đặt thời hạn. Hết hạn áp dụng cả xem và tải xuống.</p></Field>}{benefits?.password_links&&<Field><FieldLabel htmlFor="share-password">Mật khẩu liên kết (không bắt buộc)</FieldLabel><Input id="share-password" type="password" autoComplete="new-password" minLength={8} maxLength={128} value={sharePassword} onChange={event=>setSharePassword(event.target.value)}/><p className="files-policy">Ít nhất 8 ký tự. Gửi mật khẩu cho người nhận qua kênh riêng.</p></Field>}</FieldGroup>{newLink&&<FieldGroup><Field><FieldLabel htmlFor="share-url">Liên kết chỉ đọc</FieldLabel><Input id="share-url" value={newLink} readOnly onFocus={event=>event.currentTarget.select()}/><Button variant="outline" onClick={()=>void copyLink()}>{copied?<Check data-icon="inline-start" aria-hidden/>:<Copy data-icon="inline-start" aria-hidden/>}{copied?"Đã sao chép":"Sao chép liên kết"}</Button></Field></FieldGroup>}<Button onClick={()=>void createShare()} disabled={busy||sharesLoading}><Link2 data-icon="inline-start" aria-hidden/>{newLink?"Tạo liên kết khác":"Tạo liên kết chia sẻ"}</Button>{sharesLoading?<Skeleton className="h-12"/>:fileShares.filter(item=>!item.revoked).map((item,index)=><div className="files-share-row" key={item.id}><span>Liên kết {index+1}<small>Tạo ngày {date(item.created_at)} · Chỉ đọc{item.password_protected?" · Có mật khẩu":""}{item.expires_at?` · Hết hạn ${when(item.expires_at)}`:""}</small>{item.views!==undefined&&<small>{item.views} lượt xem · {item.downloads??0} lượt tải · từ {date(item.stats_since??null)}</small>}</span><Button variant="outline" size="sm" disabled={busy} onClick={()=>void revokeShare(item.id,true)}>Thu hồi</Button></div>)}<p className="files-policy">Liên kết mới chỉ được hiển thị khi tạo. Hãy sao chép trước khi đóng cửa sổ.</p></div>}
       {dialog==="details"&&selected&&<dl className="files-details"><div><dt>Loại</dt><dd>{selected.is_folder?"Thư mục":selected.mime_type||"Tệp"}</dd></div>{!selected.is_folder&&<div><dt>Kích thước</dt><dd>{bytes(selected.size)}</dd></div>}<div><dt>Sửa đổi</dt><dd>{date(selected.modified_at)}</dd></div>{selected.deleted_at&&<div><dt>Ngày xóa</dt><dd>{date(selected.deleted_at)}</dd></div>}{!trash&&!selected.is_folder&&<Button asChild><a href={`/api/files/${selected.id}/download`}><Download data-icon="inline-start" aria-hidden/>Tải xuống</a></Button>}{versionsLoading&&<Skeleton className="h-12"/>}{versions.length>0&&<div className="files-versions"><h3>Phiên bản trước</h3><p className="files-policy">Phiên bản được lưu vẫn tính vào dung lượng. Các bản lịch sử cũ được giữ theo chính sách chuyển đổi.</p>{versions.map(version=><div key={version.id}><span>{date(version.created_at)}<small>{bytes(version.size)}{version.source==="native"?" · Tự động":" · Lịch sử được giữ"}{version.expires_at?` · Khả dụng đến ${date(version.expires_at)}`:""}</small></span>{version.available?<div className="files-version-actions"><Button variant="outline" size="sm" asChild><a href={`/api/files/${selected.id}/versions/${version.id}/download`}><Download data-icon="inline-start" aria-hidden/>Tải xuống</a></Button>{version.restorable&&<Button variant="outline" size="sm" disabled={busy} onClick={()=>{setRestoreVersion(version);setDialog("version_restore");setDialogError("")}}><Undo2 data-icon="inline-start" aria-hidden/>Khôi phục</Button>}</div>:<span>Không khả dụng</span>}</div>)}</div>}</dl>}
       {dialog==="replace"&&selected&&<><p className="files-policy">Cập nhật “{selected.name}” bằng tệp mới. Nội dung hiện tại được giữ trong lịch sử phiên bản. Tệp và các phiên bản đều tính vào dung lượng; không tự xóa dữ liệu cũ để lấy chỗ.</p><FieldGroup><Field><FieldLabel htmlFor="replacement-file">Chọn nội dung mới</FieldLabel><Input id="replacement-file" type="file" onChange={event=>setReplacement(event.target.files?.[0]??null)}/></Field></FieldGroup><DialogFooter><Button variant="outline" disabled={!!upload} onClick={()=>closeDialog()}>Hủy</Button><Button disabled={!replacement||!!upload} onClick={()=>{if(replacement){closeDialog();void uploadFiles([replacement],selected)}}}>Cập nhật và lưu phiên bản</Button></DialogFooter></>}
